@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: platform-config
+  namespace: healthcare-platform
+data:
+  KAFKA_BOOTSTRAP_SERVERS: "kafka.healthcare-platform.svc.cluster.local:9092"
+  REDIS_HOST: "redis.healthcare-platform.svc.cluster.local"
+  REDIS_PORT: "6379"
+  RABBITMQ_HOST: "rabbitmq.healthcare-platform.svc.cluster.local"
+  # Kafka SASL usernames (not secret — paired passwords live in platform-secrets).
+  # NOTE: KAFKA_SSL_TRUSTSTORE_LOCATION is left at its application.yml default
+  # (/etc/kafka/certs/kafka.truststore.p12). This repo doesn't provision the truststore
+  # volume for the cluster — whoever runs the Kafka broker here must also distribute its CA
+  # cert to every pod at that path (e.g. a ConfigMap-backed volume) or override the location.
+  KAFKA_SASL_USERNAME_IDENTITY: "identity"
+  KAFKA_SASL_USERNAME_PATIENT: "patient"
+  KAFKA_SASL_USERNAME_DOCTOR: "doctor"
+  KAFKA_SASL_USERNAME_APPOINTMENT: "appointment"
+  KAFKA_SASL_USERNAME_EMR: "emr"
+  KAFKA_SASL_USERNAME_BILLING: "billing"
+  KAFKA_SASL_USERNAME_NOTIFICATION: "notification"
+  KAFKA_SASL_USERNAME_AUDIT: "audit"
+  KAFKA_SASL_USERNAME_ANALYTICS: "analytics"

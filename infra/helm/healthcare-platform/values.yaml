@@ -1,0 +1,57 @@
+# One entry per microservice. This drives a single templated Deployment+Service pair
+# (see templates/service.yaml) instead of hand-writing 9 nearly-identical charts —
+# Helm's templating earns its keep exactly here, where the manifests differ only in
+# name/port/db.
+services:
+  identity-service:
+    port: 8081
+    dbName: identity_db
+    dbUser: identity_user
+    replicas: 2
+  patient-service:
+    port: 8082
+    dbName: patient_db
+    dbUser: patient_user
+    replicas: 2
+  doctor-service:
+    port: 8083
+    dbName: doctor_db
+    dbUser: doctor_user
+    replicas: 2
+  appointment-service:
+    port: 8084
+    dbName: appointment_db
+    dbUser: appointment_user
+    replicas: 2
+  emr-service:
+    port: 8085
+    dbName: emr_db
+    dbUser: emr_user
+    replicas: 2
+  billing-service:
+    port: 8086
+    dbName: billing_db
+    dbUser: billing_user
+    replicas: 2
+  notification-service:
+    port: 8087
+    dbName: notification_db
+    dbUser: notification_user
+    replicas: 2
+  audit-service:
+    port: 8088
+    dbName: audit_db
+    dbUser: audit_user
+    replicas: 2
+  analytics-service:
+    port: 8089
+    dbName: analytics_db
+    dbUser: analytics_user
+    replicas: 2
+
+image:
+  registry: ghcr.io/example-org/healthcare-platform
+  tag: latest
+  pullPolicy: IfNotPresent
+
+dbHost: postgres.healthcare-platform.svc.cluster.local

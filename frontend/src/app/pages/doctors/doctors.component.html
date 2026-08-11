@@ -1,0 +1,35 @@
+<div class="card">
+  <h1>Find a Doctor</h1>
+  <form (ngSubmit)="search()" class="inline-form">
+    <label>
+      Specialty
+      <input type="text" name="specialty" [(ngModel)]="specialty" placeholder="Cardiology" required />
+    </label>
+    <button type="submit" [disabled]="loading">{{ loading ? 'Searching…' : 'Search' }}</button>
+  </form>
+
+  <p class="error" *ngIf="error">{{ error }}</p>
+
+  <table class="data-table" *ngIf="results.length">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Specialty</th>
+        <th>Department</th>
+        <th>Doctor ID</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let doctor of results">
+        <td>{{ doctor.firstName }} {{ doctor.lastName }}</td>
+        <td>{{ doctor.specialty }}</td>
+        <td>{{ doctor.departmentName }}</td>
+        <td><code>{{ doctor.id }}</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p class="muted" *ngIf="searched && !loading && !results.length && !error">
+    No doctors found for "{{ specialty }}".
+  </p>
+</div>

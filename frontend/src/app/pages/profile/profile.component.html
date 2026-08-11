@@ -1,0 +1,54 @@
+<div class="card">
+  <h1>My Profile</h1>
+
+  <p class="muted" *ngIf="loading">Loading…</p>
+  <p class="error" *ngIf="error">{{ error }}</p>
+
+  <ng-container *ngIf="!loading">
+    <div *ngIf="profile">
+      <dl class="detail-list">
+        <dt>Name</dt>
+        <dd>{{ profile.firstName }} {{ profile.lastName }}</dd>
+        <dt>Date of birth</dt>
+        <dd>{{ profile.dateOfBirth }}</dd>
+        <dt>Email</dt>
+        <dd>{{ profile.email }}</dd>
+        <dt>Phone</dt>
+        <dd>{{ profile.phoneNumber || '—' }}</dd>
+        <dt>Patient ID</dt>
+        <dd><code>{{ profile.id }}</code></dd>
+      </dl>
+
+      <form (ngSubmit)="updatePhone()" class="inline-form">
+        <label>
+          Update phone number
+          <input type="tel" name="newPhoneNumber" [(ngModel)]="newPhoneNumber" />
+        </label>
+        <button type="submit" [disabled]="savingPhone">
+          {{ savingPhone ? 'Saving…' : 'Save' }}
+        </button>
+      </form>
+    </div>
+
+    <form *ngIf="notFound && !profile" (ngSubmit)="createProfile()" #form="ngForm">
+      <p class="muted">You don't have a patient profile yet. Create one below.</p>
+      <label>
+        First name
+        <input type="text" name="firstName" [(ngModel)]="firstName" required />
+      </label>
+      <label>
+        Last name
+        <input type="text" name="lastName" [(ngModel)]="lastName" required />
+      </label>
+      <label>
+        Date of birth
+        <input type="date" name="dateOfBirth" [(ngModel)]="dateOfBirth" required />
+      </label>
+      <label>
+        Phone number
+        <input type="tel" name="phoneNumber" [(ngModel)]="phoneNumber" />
+      </label>
+      <button type="submit" [disabled]="form.invalid || loading">Create profile</button>
+    </form>
+  </ng-container>
+</div>

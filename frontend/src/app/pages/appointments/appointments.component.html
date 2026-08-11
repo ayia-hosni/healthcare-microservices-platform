@@ -1,0 +1,68 @@
+<div class="card">
+  <h1>Book an Appointment</h1>
+  <p class="muted">Find a doctor's ID on the <a routerLink="/doctors">Doctors</a> page first.</p>
+
+  <form (ngSubmit)="book()" #bookForm="ngForm">
+    <label>
+      Doctor ID
+      <input type="text" name="doctorId" [(ngModel)]="doctorId" required placeholder="UUID" />
+    </label>
+    <label>
+      Start time
+      <input type="datetime-local" name="scheduledStart" [(ngModel)]="scheduledStart" required />
+    </label>
+    <label>
+      End time
+      <input type="datetime-local" name="scheduledEnd" [(ngModel)]="scheduledEnd" required />
+    </label>
+
+    <p class="error" *ngIf="bookError">{{ bookError }}</p>
+
+    <button type="submit" [disabled]="bookForm.invalid || booking">
+      {{ booking ? 'Booking…' : 'Book appointment' }}
+    </button>
+  </form>
+
+  <div class="callout" *ngIf="booked">
+    <p>Booked! Status: <strong>{{ booked.status }}</strong></p>
+    <p>Appointment ID: <code>{{ booked.id }}</code></p>
+  </div>
+</div>
+
+<div class="card">
+  <h1>Manage an Appointment</h1>
+  <form (ngSubmit)="lookup()" class="inline-form">
+    <label>
+      Appointment ID
+      <input type="text" name="lookupId" [(ngModel)]="lookupId" required placeholder="UUID" />
+    </label>
+    <button type="submit" [disabled]="lookupLoading">
+      {{ lookupLoading ? 'Looking up…' : 'Look up' }}
+    </button>
+  </form>
+
+  <p class="error" *ngIf="lookupError">{{ lookupError }}</p>
+
+  <div *ngIf="found">
+    <dl class="detail-list">
+      <dt>Status</dt>
+      <dd>{{ found.status }}</dd>
+      <dt>Doctor ID</dt>
+      <dd><code>{{ found.doctorId }}</code></dd>
+      <dt>Start</dt>
+      <dd>{{ found.scheduledStart | date: 'medium' }}</dd>
+      <dt>End</dt>
+      <dd>{{ found.scheduledEnd | date: 'medium' }}</dd>
+    </dl>
+
+    <form (ngSubmit)="cancel()" class="inline-form" *ngIf="found.status !== 'CANCELLED'">
+      <label>
+        Cancellation reason
+        <input type="text" name="cancelReason" [(ngModel)]="cancelReason" placeholder="Optional" />
+      </label>
+      <button type="submit" [disabled]="cancelling">
+        {{ cancelling ? 'Cancelling…' : 'Cancel appointment' }}
+      </button>
+    </form>
+  </div>
+</div>

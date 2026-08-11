@@ -1,0 +1,19 @@
+<div class="card">
+  <h1>Welcome{{ auth.currentUser()?.email ? ', ' + auth.currentUser()?.email : '' }}</h1>
+  <p class="muted">Roles: {{ auth.currentUser()?.roles?.join(', ') }}</p>
+
+  <div class="tile-grid">
+    <a class="tile" routerLink="/profile">
+      <h2>My Profile</h2>
+      <p>Register or view your patient profile.</p>
+    </a>
+    <a class="tile" routerLink="/doctors">
+      <h2>Find a Doctor</h2>
+      <p>Search doctors by specialty.</p>
+    </a>
+    <a class="tile" routerLink="/appointments">
+      <h2>Appointments</h2>
+      <p>Book, view, or cancel an appointment.</p>
+    </a>
+  </div>
+</div>

@@ -1,0 +1,23 @@
+package com.healthplatform.doctor.domain;
+
+import jakarta.persistence.*;
+import java.util.UUID;
+
+@Entity
+@Table(name = "departments")
+public class Department {
+
+    @Id
+    @GeneratedValue
+    private UUID id;
+
+    @Column(nullable = false, unique = true)
+    private String name;
+
+    protected Department() {}
+
+    public Department(String name) { this.name = name; }
+
+    public UUID getId() { return id; }
+    public String getName() { return name; }
+}

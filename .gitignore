@@ -1,0 +1,35 @@
+target/
+# Environment
+.env
+.env.*
+!.env.example
+
+# Secrets
+*.key
+*.pem
+*.p12
+*.jks
+*credentials*
+*password*
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# macOS
+.DS_Store
+
+# Java
+**/target/
+*.class
+
+# Node
+node_modules/
+dist/
+
+# Logs
+*.log
+
+# Docker
+docker-data/

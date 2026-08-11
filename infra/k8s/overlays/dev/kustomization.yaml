@@ -1,0 +1,140 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+  - datastores/postgres.yaml
+  - datastores/redis.yaml
+  - datastores/zookeeper.yaml
+  - datastores/kafka.yaml
+  - datastores/rabbitmq.yaml
+  - datastores/minio.yaml
+
+replicas:
+  - name: identity-service
+    count: 1
+  - name: patient-service
+    count: 1
+  - name: doctor-service
+    count: 1
+  - name: appointment-service
+    count: 1
+  - name: emr-service
+    count: 1
+  - name: billing-service
+    count: 1
+  - name: notification-service
+    count: 1
+  - name: audit-service
+    count: 1
+  - name: analytics-service
+    count: 1
+  - name: frontend
+    count: 1
+
+patches:
+  # Real, working dev credentials in place of base's placeholder secrets. Values here are
+  # deliberately paired with the datastore manifests: DB_PASSWORD matches the password baked
+  # into datastores/postgres.yaml's POSTGRES_MULTIPLE_DATABASES, and RABBITMQ_USER/PASSWORD
+  # match datastores/rabbitmq.yaml's RABBITMQ_DEFAULT_USER/PASS (both read from this same
+  # secret, so they can never drift apart). The KAFKA_SASL_PASSWORD_* values are unused now
+  # that the in-cluster broker is PLAINTEXT (see kafka-plaintext patches below) — Spring still
+  # needs *something* there to resolve the ${KAFKA_SASL_PASSWORD} placeholder in application.yml.
+  - target:
+      kind: Secret
+      name: platform-secrets
+    patch: |-
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: platform-secrets
+      stringData:
+        JWT_SECRET: local-dev-secret-key-please-change-in-production-32bytes
+        DB_PASSWORD: healthcare-dev-db-pw
+        RABBITMQ_USER: notification_service
+        RABBITMQ_PASSWORD: local-dev-rabbitmq-pass
+        KAFKA_SASL_PASSWORD_IDENTITY: unused-kafka-is-plaintext-in-dev
+        KAFKA_SASL_PASSWORD_PATIENT: unused-kafka-is-plaintext-in-dev
+        KAFKA_SASL_PASSWORD_DOCTOR: unused-kafka-is-plaintext-in-dev
+        KAFKA_SASL_PASSWORD_APPOINTMENT: unused-kafka-is-plaintext-in-dev
+        KAFKA_SASL_PASSWORD_EMR: unused-kafka-is-plaintext-in-dev
+        KAFKA_SASL_PASSWORD_BILLING: unused-kafka-is-plaintext-in-dev
+        KAFKA_SASL_PASSWORD_NOTIFICATION: unused-kafka-is-plaintext-in-dev
+        KAFKA_SASL_PASSWORD_AUDIT: unused-kafka-is-plaintext-in-dev
+        KAFKA_SASL_PASSWORD_ANALYTICS: unused-kafka-is-plaintext-in-dev
+
+  # imagePullPolicy: IfNotPresent — all of these use a ":latest" tag, which defaults to
+  # "Always" and would otherwise make the kubelet try to pull from a real registry instead of
+  # using the image we built straight into minikube's docker daemon.
+  - path: patches/image-pull-policy.yaml
+    target: { kind: Deployment, name: identity-service }
+  - path: patches/image-pull-policy.yaml
+    target: { kind: Deployment, name: patient-service }
+  - path: patches/image-pull-policy.yaml
+    target: { kind: Deployment, name: doctor-service }
+  - path: patches/image-pull-policy.yaml
+    target: { kind: Deployment, name: appointment-service }
+  - path: patches/image-pull-policy.yaml
+    target: { kind: Deployment, name: emr-service }
+  - path: patches/image-pull-policy.yaml
+    target: { kind: Deployment, name: billing-service }
+  - path: patches/image-pull-policy.yaml
+    target: { kind: Deployment, name: notification-service }
+  - path: patches/image-pull-policy.yaml
+    target: { kind: Deployment, name: audit-service }
+  - path: patches/image-pull-policy.yaml
+    target: { kind: Deployment, name: analytics-service }
+  - path: patches/image-pull-policy.yaml
+    target: { kind: Deployment, name: frontend }
+
+  # Every app service's application.yml hardcodes Kafka security.protocol: SASL_SSL against
+  # a truststore file this dev cluster doesn't provision. datastores/kafka.yaml runs a plain
+  # PLAINTEXT broker instead, so every client needs this override to match.
+  - path: patches/kafka-plaintext.yaml
+    target: { kind: Deployment, name: identity-service }
+  - path: patches/kafka-plaintext.yaml
+    target: { kind: Deployment, name: patient-service }
+  - path: patches/kafka-plaintext.yaml
+    target: { kind: Deployment, name: doctor-service }
+  - path: patches/kafka-plaintext.yaml
+    target: { kind: Deployment, name: appointment-service }
+  - path: patches/kafka-plaintext.yaml
+    target: { kind: Deployment, name: emr-service }
+  - path: patches/kafka-plaintext.yaml
+    target: { kind: Deployment, name: billing-service }
+  - path: patches/kafka-plaintext.yaml
+    target: { kind: Deployment, name: notification-service }
+  - path: patches/kafka-plaintext.yaml
+    target: { kind: Deployment, name: audit-service }
+  - path: patches/kafka-plaintext.yaml
+    target: { kind: Deployment, name: analytics-service }
+
+  # analytics-service's Quartz job store is configured as "jdbc", which needs the QRTZ_*
+  # tables from Quartz's standard Postgres DDL script — a script that doesn't exist anywhere
+  # in this repo (see application.yml's comment: "applied once at infra-provisioning time").
+  # Without it, SchedulerFactoryBean fails at startup against a fresh database. Switching to
+  # an in-memory job store sidesteps that; the tradeoff (no cross-restart job persistence)
+  # is fine for a dev cluster.
+  - path: patches/quartz-memory.yaml
+    target: { kind: Deployment, name: analytics-service }
+
+  # Lower requests/limits so all 9 services + datastores fit comfortably in a local minikube
+  # VM. Base's values (250m/384Mi request, 1000m/768Mi limit per service) assume a real
+  # cluster with room to spare.
+  - path: patches/dev-resources.yaml
+    target: { kind: Deployment, name: identity-service }
+  - path: patches/dev-resources.yaml
+    target: { kind: Deployment, name: patient-service }
+  - path: patches/dev-resources.yaml
+    target: { kind: Deployment, name: doctor-service }
+  - path: patches/dev-resources.yaml
+    target: { kind: Deployment, name: appointment-service }
+  - path: patches/dev-resources.yaml
+    target: { kind: Deployment, name: emr-service }
+  - path: patches/dev-resources.yaml
+    target: { kind: Deployment, name: billing-service }
+  - path: patches/dev-resources.yaml
+    target: { kind: Deployment, name: notification-service }
+  - path: patches/dev-resources.yaml
+    target: { kind: Deployment, name: audit-service }
+  - path: patches/dev-resources.yaml
+    target: { kind: Deployment, name: analytics-service }

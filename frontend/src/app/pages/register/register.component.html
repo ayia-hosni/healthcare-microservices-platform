@@ -1,0 +1,28 @@
+<div class="card auth-card">
+  <h1>Create account</h1>
+  <form (ngSubmit)="submit()" #form="ngForm">
+    <label>
+      Email
+      <input type="email" name="email" [(ngModel)]="email" required autocomplete="email" />
+    </label>
+    <label>
+      Password
+      <input
+        type="password"
+        name="password"
+        [(ngModel)]="password"
+        required
+        minlength="12"
+        autocomplete="new-password"
+      />
+      <small class="muted">At least 12 characters.</small>
+    </label>
+
+    <p class="error" *ngIf="error">{{ error }}</p>
+
+    <button type="submit" [disabled]="form.invalid || loading">
+      {{ loading ? 'Creating…' : 'Register' }}
+    </button>
+  </form>
+  <p class="muted">Already have an account? <a routerLink="/login">Log in</a></p>
+</div>

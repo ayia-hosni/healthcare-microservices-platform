@@ -1,0 +1,22 @@
+{
+  "/api/v1/auth": {
+    "target": "http://localhost:8081",
+    "secure": false,
+    "changeOrigin": true
+  },
+  "/api/v1/patients": {
+    "target": "http://localhost:8082",
+    "secure": false,
+    "changeOrigin": true
+  },
+  "/api/v1/doctors": {
+    "target": "http://localhost:8083",
+    "secure": false,
+    "changeOrigin": true
+  },
+  "/api/v1/appointments": {
+    "target": "http://localhost:8084",
+    "secure": false,
+    "changeOrigin": true
+  }
+}

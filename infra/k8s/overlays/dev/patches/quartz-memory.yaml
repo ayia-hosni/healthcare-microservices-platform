@@ -1,0 +1,5 @@
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: SPRING_QUARTZ_JOB_STORE_TYPE
+    value: memory

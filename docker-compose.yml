@@ -1,0 +1,473 @@
+x-common-env: &common-env
+  JWT_SECRET: local-dev-secret-key-please-change-in-production-32bytes
+  KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+
+# Applied to all 9 Spring Boot services below. Each has its own Docker HEALTHCHECK (see its
+# Dockerfile) hitting /actuator/health, so no per-service healthcheck override is needed here.
+x-app-defaults: &app-defaults
+  restart: unless-stopped
+  deploy:
+    resources:
+      limits:
+        cpus: "1.0"
+        memory: 768M
+      reservations:
+        memory: 384M
+
+services:
+
+  # ---------- Datastores ----------
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_MULTIPLE_DATABASES: >-
+        identity_db:identity_user:identity_pass,
+        patient_db:patient_user:patient_pass,
+        doctor_db:doctor_user:doctor_pass,
+        appointment_db:appointment_user:appointment_pass,
+        emr_db:emr_user:emr_pass,
+        billing_db:billing_user:billing_pass,
+        notification_db:notification_user:notification_pass,
+        audit_db:audit_user:audit_pass,
+        analytics_db:analytics_user:analytics_pass
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infra/docker/init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    # Not using the `ruok` four-letter-word check: this image's Zookeeper blocks it by default
+    # ("not in the whitelist") unless 4lw.commands.whitelist is opened up, which isn't worth
+    # doing just for a healthcheck. A bare TCP accept check is enough to gate kafka's startup.
+    healthcheck:
+      test: ["CMD-SHELL", "echo > /dev/tcp/localhost/2181 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # SASL_SSL (SASL/PLAIN over TLS) using a throwaway dev CA — see
+  # infra/docker/kafka/generate-dev-certs.sh, which must be run once before first `up`,
+  # and docs/adr/0006-messaging-hardening-roadmap.md for why PLAIN over SCRAM here.
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    restart: unless-stopped
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    # Skip the image's built-in "cub zk-ready" preflight check (configure, then launch
+    # directly) instead of the default entrypoint (configure -> ensure -> launch). Reproduced
+    # and confirmed: with any static JAAS file present via KAFKA_OPTS (required below for
+    # BrokerToControllerChannelManager — see that comment), the ensure step's cub zk-ready
+    # tool's Zookeeper connection watcher never fires SyncConnected and it times out after
+    # KAFKA_CUB_ZK_TIMEOUT (default 40s), exiting 1 before the real broker ever starts — even
+    # though the actual broker's own Zookeeper client (a different code path) connects
+    # successfully in well under a second every time. This is a narrow, reproducible
+    # incompatibility between that one preflight tool and a JAAS file being present, not a
+    # problem with the broker's real Zookeeper connectivity, so skipping just that check is
+    # safe. Losing with it: the (redundant) "/var/lib/kafka/data is writable" precheck — a
+    # real permissions problem there still surfaces immediately, just from `launch` itself
+    # instead of `ensure`, with an equally clear error.
+    command: >
+      bash -c "/etc/confluent/docker/configure && exec /etc/confluent/docker/launch"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      # Listener is named "BROKER" (mapped to the SASL_SSL protocol below), not "SASL_SSL"
+      # itself — reusing a security-protocol name as the listener name breaks the
+      # KAFKA_LISTENER_NAME_<listener>_<mechanism>_SASL_JAAS_CONFIG env-var-to-property
+      # translation below: it can't tell where the listener-name segment ends and the
+      # mechanism segment begins when the listener name itself contains an underscore
+      # (confirmed by inspecting the generated kafka.properties: it produced the wrong key
+      # `listener.name.sasl.ssl.plain...` instead of `listener.name.broker.plain...`).
+      # Clients never see this alias; they only specify security.protocol=SASL_SSL.
+      KAFKA_ADVERTISED_LISTENERS: BROKER://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: BROKER:SASL_SSL
+      KAFKA_INTER_BROKER_LISTENER_NAME: BROKER
+      KAFKA_SASL_ENABLED_MECHANISMS: PLAIN
+      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: PLAIN
+      KAFKA_SSL_KEYSTORE_FILENAME: kafka.broker.keystore.p12
+      KAFKA_SSL_KEYSTORE_CREDENTIALS: kafka_keystore_creds
+      KAFKA_SSL_KEY_CREDENTIALS: kafka_key_creds
+      # NOT KAFKA_SSL_TRUSTSTORE_FILENAME/_CREDENTIALS: the image's configure script only
+      # derives ssl.truststore.location/password from those when KAFKA_SSL_CLIENT_AUTH is
+      # required/requested (mutual TLS). We don't want client-cert auth (SASL handles client
+      # identity), but the broker's internal SslFactory self-test still needs a truststore
+      # that trusts its own cert's issuer, so set the real properties directly instead.
+      KAFKA_SSL_TRUSTSTORE_LOCATION: /etc/kafka/secrets/kafka.truststore.p12
+      KAFKA_SSL_TRUSTSTORE_PASSWORD: changeit
+      # Both stores are PKCS12 (see generate-dev-certs.sh); Kafka defaults to JKS, which
+      # silently fails the broker's internal SslFactory self-test handshake ("No available
+      # authentication scheme") rather than an obvious "wrong keystore format" error.
+      KAFKA_SSL_KEYSTORE_TYPE: PKCS12
+      KAFKA_SSL_TRUSTSTORE_TYPE: PKCS12
+      # Per-service SASL/PLAIN credentials for real client authentication on the BROKER
+      # (SASL_SSL) listener — this is what the 9 services actually authenticate against.
+      KAFKA_LISTENER_NAME_BROKER_PLAIN_SASL_JAAS_CONFIG: >-
+        org.apache.kafka.common.security.plain.PlainLoginModule required
+        username="admin"
+        password="local-dev-kafka-admin-pass"
+        user_admin="local-dev-kafka-admin-pass"
+        user_identity="local-dev-identity-pass"
+        user_patient="local-dev-patient-pass"
+        user_doctor="local-dev-doctor-pass"
+        user_appointment="local-dev-appointment-pass"
+        user_emr="local-dev-emr-pass"
+        user_billing="local-dev-billing-pass"
+        user_notification="local-dev-notification-pass"
+        user_audit="local-dev-audit-pass"
+        user_analytics="local-dev-analytics-pass";
+      # Minimal static JAAS file (KafkaServer section, admin-only — see
+      # infra/docker/kafka/kafka_server_jaas.conf) via KAFKA_OPTS. Needed ONLY because Kafka
+      # 3.x's BrokerToControllerChannelManager (inter-broker metadata channel, used even in
+      # legacy ZooKeeper mode) falls back to this static file/system-property mechanism
+      # rather than the listener-scoped property above — fails fast with "Could not find a
+      # 'KafkaServer' ... entry" at broker startup without it. Kept intentionally tiny (one
+      # user) because a full per-service roster here made the Zookeeper-readiness preflight
+      # tool (`cub zk-ready`) time out waiting on its connection watcher — a real, reproduced
+      # interaction between JAAS parsing cost and that tool's fixed internal timeout, not a
+      # logic bug in the SASL config itself. -Dzookeeper.sasl.client=false keeps that same
+      # preflight tool from also trying (and failing) to SASL-auth against an unsecured ZK.
+      KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/kafka_server_jaas.conf -Dzookeeper.sasl.client=false"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    volumes:
+      - ./infra/docker/kafka/certs:/etc/kafka/secrets
+      - ./infra/docker/kafka/kafka_server_jaas.conf:/etc/kafka/kafka_server_jaas.conf:ro
+    ports:
+      - "9092:9092"
+    # A real SASL_SSL client handshake is what `cub kafka-ready` would need, and that tool has
+    # already proven unreliable against this JAAS setup (see the command: comment above) — a
+    # bare TCP accept check is a weaker signal but a dependable one: it just confirms the
+    # broker is listening, which is enough for the other services' depends_on to wait on.
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'cat < /dev/null > /dev/tcp/localhost/9092' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: notification_service
+      RABBITMQ_DEFAULT_PASS: local-dev-rabbitmq-pass-please-change-in-production
+    ports:
+      - "5672:5672"
+      - "15672:15672" # management UI
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------- Observability ----------
+
+  zipkin:
+    image: openzipkin/zipkin:latest
+    restart: unless-stopped
+    ports:
+      - "9411:9411"
+
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    volumes:
+      - ./infra/docker/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+
+  # ---------- Application services ----------
+
+  identity-service:
+    <<: *app-defaults
+    build:
+      context: ./backend
+      dockerfile: identity-service/Dockerfile
+    environment:
+      <<: *common-env
+      DB_HOST: postgres
+      DB_NAME: identity_db
+      DB_USER: identity_user
+      DB_PASSWORD: identity_pass
+      KAFKA_SASL_USERNAME: identity
+      KAFKA_SASL_PASSWORD: local-dev-identity-pass
+    volumes:
+      - ./infra/docker/kafka/certs/kafka.truststore.p12:/etc/kafka/certs/kafka.truststore.p12:ro
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  patient-service:
+    <<: *app-defaults
+    build:
+      context: ./backend
+      dockerfile: patient-service/Dockerfile
+    environment:
+      <<: *common-env
+      DB_HOST: postgres
+      DB_NAME: patient_db
+      DB_USER: patient_user
+      DB_PASSWORD: patient_pass
+      KAFKA_SASL_USERNAME: patient
+      KAFKA_SASL_PASSWORD: local-dev-patient-pass
+    volumes:
+      - ./infra/docker/kafka/certs/kafka.truststore.p12:/etc/kafka/certs/kafka.truststore.p12:ro
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  doctor-service:
+    <<: *app-defaults
+    build:
+      context: ./backend
+      dockerfile: doctor-service/Dockerfile
+    environment:
+      <<: *common-env
+      DB_HOST: postgres
+      DB_NAME: doctor_db
+      DB_USER: doctor_user
+      DB_PASSWORD: doctor_pass
+      KAFKA_SASL_USERNAME: doctor
+      KAFKA_SASL_PASSWORD: local-dev-doctor-pass
+    volumes:
+      - ./infra/docker/kafka/certs/kafka.truststore.p12:/etc/kafka/certs/kafka.truststore.p12:ro
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  appointment-service:
+    <<: *app-defaults
+    build:
+      context: ./backend
+      dockerfile: appointment-service/Dockerfile
+    environment:
+      <<: *common-env
+      DB_HOST: postgres
+      DB_NAME: appointment_db
+      DB_USER: appointment_user
+      DB_PASSWORD: appointment_pass
+      KAFKA_SASL_USERNAME: appointment
+      KAFKA_SASL_PASSWORD: local-dev-appointment-pass
+    volumes:
+      - ./infra/docker/kafka/certs/kafka.truststore.p12:/etc/kafka/certs/kafka.truststore.p12:ro
+    ports:
+      - "8084:8084"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  emr-service:
+    <<: *app-defaults
+    build:
+      context: ./backend
+      dockerfile: emr-service/Dockerfile
+    environment:
+      <<: *common-env
+      DB_HOST: postgres
+      DB_NAME: emr_db
+      DB_USER: emr_user
+      DB_PASSWORD: emr_pass
+      MINIO_ENDPOINT: http://minio:9000
+      KAFKA_SASL_USERNAME: emr
+      KAFKA_SASL_PASSWORD: local-dev-emr-pass
+    volumes:
+      - ./infra/docker/kafka/certs/kafka.truststore.p12:/etc/kafka/certs/kafka.truststore.p12:ro
+    ports:
+      - "8085:8085"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  billing-service:
+    <<: *app-defaults
+    build:
+      context: ./backend
+      dockerfile: billing-service/Dockerfile
+    environment:
+      <<: *common-env
+      DB_HOST: postgres
+      DB_NAME: billing_db
+      DB_USER: billing_user
+      DB_PASSWORD: billing_pass
+      KAFKA_SASL_USERNAME: billing
+      KAFKA_SASL_PASSWORD: local-dev-billing-pass
+    volumes:
+      - ./infra/docker/kafka/certs/kafka.truststore.p12:/etc/kafka/certs/kafka.truststore.p12:ro
+    ports:
+      - "8086:8086"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  notification-service:
+    <<: *app-defaults
+    build:
+      context: ./backend
+      dockerfile: notification-service/Dockerfile
+    environment:
+      <<: *common-env
+      DB_HOST: postgres
+      DB_NAME: notification_db
+      DB_USER: notification_user
+      DB_PASSWORD: notification_pass
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: notification_service
+      RABBITMQ_PASSWORD: local-dev-rabbitmq-pass-please-change-in-production
+      KAFKA_SASL_USERNAME: notification
+      KAFKA_SASL_PASSWORD: local-dev-notification-pass
+    volumes:
+      - ./infra/docker/kafka/certs/kafka.truststore.p12:/etc/kafka/certs/kafka.truststore.p12:ro
+    ports:
+      - "8087:8087"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  audit-service:
+    <<: *app-defaults
+    build:
+      context: ./backend
+      dockerfile: audit-service/Dockerfile
+    environment:
+      <<: *common-env
+      DB_HOST: postgres
+      DB_NAME: audit_db
+      DB_USER: audit_user
+      DB_PASSWORD: audit_pass
+      KAFKA_SASL_USERNAME: audit
+      KAFKA_SASL_PASSWORD: local-dev-audit-pass
+    volumes:
+      - ./infra/docker/kafka/certs/kafka.truststore.p12:/etc/kafka/certs/kafka.truststore.p12:ro
+    ports:
+      - "8088:8088"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  analytics-service:
+    <<: *app-defaults
+    build:
+      context: ./backend
+      dockerfile: analytics-service/Dockerfile
+    environment:
+      <<: *common-env
+      DB_HOST: postgres
+      DB_NAME: analytics_db
+      DB_USER: analytics_user
+      DB_PASSWORD: analytics_pass
+      KAFKA_SASL_USERNAME: analytics
+      KAFKA_SASL_PASSWORD: local-dev-analytics-pass
+    volumes:
+      - ./infra/docker/kafka/certs/kafka.truststore.p12:/etc/kafka/certs/kafka.truststore.p12:ro
+    ports:
+      - "8089:8089"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  minio-data:
+  grafana-data:

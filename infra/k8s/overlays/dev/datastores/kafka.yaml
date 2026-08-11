@@ -1,0 +1,58 @@
+# Dev-only, deliberately simplified. docker-compose's Kafka runs SASL_SSL with a throwaway
+# dev CA (see infra/docker/kafka/) — replicating that cert/JAAS machinery in-cluster is a lot
+# of moving parts for a local dev cluster, so this broker is plain PLAINTEXT instead. The
+# app-side security.protocol override that pairs with this lives in
+# ../patches/kafka-plaintext.yaml.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka
+  namespace: healthcare-platform
+  labels:
+    app: kafka
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka
+  template:
+    metadata:
+      labels:
+        app: kafka
+    spec:
+      containers:
+        - name: kafka
+          image: confluentinc/cp-kafka:7.6.0
+          ports:
+            - containerPort: 9092
+          env:
+            - name: KAFKA_BROKER_ID
+              value: "1"
+            - name: KAFKA_ZOOKEEPER_CONNECT
+              value: "zookeeper.healthcare-platform.svc.cluster.local:2181"
+            - name: KAFKA_ADVERTISED_LISTENERS
+              value: "PLAINTEXT://kafka.healthcare-platform.svc.cluster.local:9092"
+            - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+              value: "PLAINTEXT:PLAINTEXT"
+            - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+              value: "1"
+          resources:
+            requests:
+              cpu: "150m"
+              memory: "384Mi"
+            limits:
+              cpu: "1000m"
+              memory: "768Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka
+  namespace: healthcare-platform
+spec:
+  selector:
+    app: kafka
+  ports:
+    - port: 9092
+      targetPort: 9092
+  type: ClusterIP

@@ -1,0 +1,13 @@
+<header class="top-nav" *ngIf="auth.isLoggedIn">
+  <a class="brand" routerLink="/">Healthcare Platform</a>
+  <nav>
+    <a routerLink="/doctors">Doctors</a>
+    <a routerLink="/profile">Profile</a>
+    <a routerLink="/appointments">Appointments</a>
+    <button type="button" (click)="auth.logout()">Log out</button>
+  </nav>
+</header>
+
+<main>
+  <router-outlet />
+</main>

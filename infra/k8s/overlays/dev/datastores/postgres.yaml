@@ -1,0 +1,144 @@
+# Dev-only. Production would point DB_HOST at a managed Postgres instance per service
+# instead of running Postgres inside the cluster (see infra/k8s/base's DB_HOST values,
+# which already assume a Service literally named "postgres" in this namespace).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-initdb
+  namespace: healthcare-platform
+data:
+  # Same script infra/docker/init-multiple-dbs.sh runs for docker-compose: one database +
+  # owning user per microservice. All service users share a single dev password here
+  # (healthcare-dev-db-pw) to match platform-secrets' single DB_PASSWORD key — see
+  # secrets-dev.yaml.
+  01-init-multiple-dbs.sh: |
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    create_database_and_user() {
+    	local db=$1
+    	local user=$2
+    	local password=$3
+
+    	echo "Creating database '$db' owned by '$user'"
+    	psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" <<-EOSQL
+    		DO \$\$
+    		BEGIN
+    			IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '$user') THEN
+    				CREATE ROLE $user LOGIN PASSWORD '$password';
+    			END IF;
+    		END
+    		\$\$;
+    		SELECT 'CREATE DATABASE $db OWNER $user' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$db')\gexec
+    		GRANT ALL PRIVILEGES ON DATABASE $db TO $user;
+    	EOSQL
+
+    	psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$db" <<-EOSQL
+    		CREATE EXTENSION IF NOT EXISTS pgcrypto;
+    	EOSQL
+    }
+
+    if [ -n "${POSTGRES_MULTIPLE_DATABASES:-}" ]; then
+    	echo "Multiple database creation requested: $POSTGRES_MULTIPLE_DATABASES"
+    	IFS=',' read -ra ENTRIES <<< "$(echo "$POSTGRES_MULTIPLE_DATABASES" | tr -d '[:space:]')"
+    	for entry in "${ENTRIES[@]}"; do
+    		IFS=':' read -r db user password <<< "$entry"
+    		create_database_and_user "$db" "$user" "$password"
+    	done
+    	echo "Multiple databases created"
+    fi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-data
+  namespace: healthcare-platform
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: healthcare-platform
+  labels:
+    app: postgres
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_PASSWORD
+              value: "dev-only-postgres-superuser-pw"
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+            - name: POSTGRES_MULTIPLE_DATABASES
+              value: >-
+                identity_db:identity_user:healthcare-dev-db-pw,
+                patient_db:patient_user:healthcare-dev-db-pw,
+                doctor_db:doctor_user:healthcare-dev-db-pw,
+                appointment_db:appointment_user:healthcare-dev-db-pw,
+                emr_db:emr_user:healthcare-dev-db-pw,
+                billing_db:billing_user:healthcare-dev-db-pw,
+                notification_db:notification_user:healthcare-dev-db-pw,
+                audit_db:audit_user:healthcare-dev-db-pw,
+                analytics_db:analytics_user:healthcare-dev-db-pw
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: initdb
+              mountPath: /docker-entrypoint-initdb.d
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres"]
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres"]
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "200Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: postgres-data
+        - name: initdb
+          configMap:
+            name: postgres-initdb
+            defaultMode: 0755
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: healthcare-platform
+spec:
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+  type: ClusterIP
