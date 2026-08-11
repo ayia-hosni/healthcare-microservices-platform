@@ -6,6 +6,7 @@ import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
 import java.util.List;
@@ -21,7 +22,7 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
      *  of surfacing a raw constraint-violation exception to the caller. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select a from Appointment a where a.doctorId = :doctorId and a.scheduledStart = :start and a.status <> 'CANCELLED'")
-    Optional<Appointment> findConflicting(UUID doctorId, Instant start);
+    Optional<Appointment> findConflicting(@Param("doctorId") UUID doctorId, @Param("start") Instant start);
 
     List<Appointment> findAllByStatusAndScheduledStartBefore(AppointmentStatus status, Instant cutoff);
 

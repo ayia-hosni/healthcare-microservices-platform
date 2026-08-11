@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -35,6 +36,19 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ErrorResponse> handleBusiness(BusinessException ex, HttpServletRequest req) {
         return build(HttpStatus.UNPROCESSABLE_ENTITY, ex.getErrorCode(), ex.getMessage(), req, List.of());
+    }
+
+    /**
+     * @PreAuthorize denials throw this from inside the controller method's AOP proxy invocation,
+     * i.e. while Spring MVC is dispatching — so it never reaches Spring Security's
+     * ExceptionTranslationFilter (that only sees exceptions that escape the servlet entirely, as
+     * happens for the plain "no token" / anyRequest().authenticated() case). Without this handler
+     * it falls through to handleUnexpected() below and every authorization failure comes back as
+     * a misleading 500 instead of 403.
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex, HttpServletRequest req) {
+        return build(HttpStatus.FORBIDDEN, "ACCESS_DENIED", "You do not have permission to perform this action", req, List.of());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

@@ -57,6 +57,13 @@
       <artifactId>resilience4j-spring-boot3</artifactId>
       <version>${resilience4j.version}</version>
     </dependency>
+    <!-- gRPC client: validates patientId/doctorId (via PatientLookup/DoctorLookup, see
+         common/src/main/proto) synchronously before booking. -->
+    <dependency>
+      <groupId>net.devh</groupId>
+      <artifactId>grpc-client-spring-boot-starter</artifactId>
+      <version>${grpc-spring-boot-starter.version}</version>
+    </dependency>
     <dependency>
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>
@@ -97,6 +104,19 @@
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <!-- net.bytebuddy.experimental=true: the byte-buddy version pinned transitively by
+             spring-boot-dependencies 3.3.2 (1.14.18) predates official support for newer JDKs
+             than it was released against, which breaks Mockito's class mocking (AppointmentEventPublisher,
+             etc.) with "Java NN is not supported by the current version of Byte Buddy" on such a
+             JDK. This flag tells byte-buddy to proceed anyway; it is a no-op on JDKs it already
+             fully supports (e.g. the project's baseline JDK 21), so it's safe to leave on. -->
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <argLine>-Dnet.bytebuddy.experimental=true</argLine>
+        </configuration>
       </plugin>
     </plugins>
   </build>

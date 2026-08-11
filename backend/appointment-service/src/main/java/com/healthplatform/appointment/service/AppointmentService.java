@@ -2,6 +2,7 @@ package com.healthplatform.appointment.service;
 
 import com.healthplatform.appointment.domain.Appointment;
 import com.healthplatform.appointment.event.AppointmentEventPublisher;
+import com.healthplatform.appointment.grpc.BookingValidationClient;
 import com.healthplatform.appointment.repository.AppointmentRepository;
 import com.healthplatform.appointment.web.dto.AppointmentResponse;
 import com.healthplatform.appointment.web.dto.BookAppointmentRequest;
@@ -41,10 +42,13 @@ public class AppointmentService {
 
     private final AppointmentRepository appointmentRepository;
     private final AppointmentEventPublisher eventPublisher;
+    private final BookingValidationClient bookingValidationClient;
 
-    public AppointmentService(AppointmentRepository appointmentRepository, AppointmentEventPublisher eventPublisher) {
+    public AppointmentService(AppointmentRepository appointmentRepository, AppointmentEventPublisher eventPublisher,
+                               BookingValidationClient bookingValidationClient) {
         this.appointmentRepository = appointmentRepository;
         this.eventPublisher = eventPublisher;
+        this.bookingValidationClient = bookingValidationClient;
     }
 
     @Transactional
@@ -55,6 +59,11 @@ public class AppointmentService {
         if (existing.isPresent()) {
             return toResponse(existing.get());
         }
+
+        // Synchronous existence checks via gRPC (PatientLookup/DoctorLookup) — previously
+        // this trusted a client-supplied patientId/doctorId outright.
+        bookingValidationClient.requirePatientExists(request.patientId());
+        bookingValidationClient.requireDoctorExists(request.doctorId());
 
         appointmentRepository.findConflicting(request.doctorId(), request.scheduledStart())
                 .ifPresent(a -> {

@@ -32,7 +32,16 @@
     <springdoc.version>2.5.0</springdoc.version>
     <jjwt.version>0.12.5</jjwt.version>
     <testcontainers.version>1.19.8</testcontainers.version>
+    <!-- Spring Boot 3.3.2 manages Mockito 5.11.0 (Byte Buddy 1.14.18), which predates JDK 25 and
+         cannot instrument classes on it ("Mockito cannot mock this class ..."). This build's local
+         toolchain resolves to JDK 25, so every class-mocking unit test (not just the ones added
+         here) fails at runtime without this bump. Overriding the version here is the standard
+         Spring Boot pattern for pinning a managed dependency above the parent BOM's version. -->
+    <mockito.version>5.20.0</mockito.version>
     <resilience4j.version>2.2.0</resilience4j.version>
+    <grpc.version>1.63.0</grpc.version>
+    <protobuf.version>3.25.3</protobuf.version>
+    <grpc-spring-boot-starter.version>3.1.0.RELEASE</grpc-spring-boot-starter.version>
   </properties>
 
   <dependencyManagement>
@@ -51,6 +60,13 @@
         <type>pom</type>
         <scope>import</scope>
       </dependency>
+      <dependency>
+        <groupId>io.grpc</groupId>
+        <artifactId>grpc-bom</artifactId>
+        <version>${grpc.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 
@@ -61,6 +77,37 @@
           <groupId>org.springframework.boot</groupId>
           <artifactId>spring-boot-maven-plugin</artifactId>
           <version>${spring-boot.version}</version>
+        </plugin>
+        <plugin>
+          <!--
+            Without -parameters, Spring's SpEL-based annotations that reference method
+            parameters by name (@Cacheable(key="#id"), @PreAuthorize, @RequestParam without an
+            explicit name, etc.) can't resolve them at runtime — javac erases parameter names
+            by default, so Spring falls back to reflection that only works with this flag on.
+            Surfaced by PatientService/DoctorService's @Cacheable(key="#id") throwing
+            "Null key returned for cache operation" under real Spring AOP proxying (a plain
+            Mockito unit test never exercises the proxy, so it stayed invisible until an actual
+            @Cacheable-backed integration test ran).
+          -->
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <configuration>
+            <parameters>true</parameters>
+          </configuration>
+        </plugin>
+        <plugin>
+          <!--
+            Mockito's inline mock maker (ByteBuddy) rejects class file versions newer than
+            what it officially recognizes, which surfaces as "Java NN is not supported by the
+            current version of Byte Buddy" on JVMs newer than ByteBuddy's known-good list.
+            net.bytebuddy.experimental opts into best-effort support for those newer JVMs
+            instead of hard-failing. Test-execution-only flag; does not affect production code.
+          -->
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <configuration>
+            <argLine>-Dnet.bytebuddy.experimental=true</argLine>
+          </configuration>
         </plugin>
       </plugins>
     </pluginManagement>

@@ -1,6 +1,15 @@
 server:
   port: 8084
 
+grpc:
+  client:
+    patient-service:
+      address: static://${PATIENT_SERVICE_GRPC_HOST:patient-service}:${PATIENT_SERVICE_GRPC_PORT:9082}
+      negotiationType: plaintext
+    doctor-service:
+      address: static://${DOCTOR_SERVICE_GRPC_HOST:doctor-service}:${DOCTOR_SERVICE_GRPC_PORT:9083}
+      negotiationType: plaintext
+
 spring:
   application:
     name: appointment-service

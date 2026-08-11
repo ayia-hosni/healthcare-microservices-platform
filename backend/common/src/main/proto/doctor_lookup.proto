@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package com.healthplatform.common.grpc;
+
+option java_package = "com.healthplatform.common.grpc";
+option java_multiple_files = true;
+option java_outer_classname = "DoctorLookupProto";
+
+// Synchronous existence/summary lookup, used by appointment-service to validate a
+// doctorId before booking (see AppointmentService.book). Deliberately minimal — not a
+// substitute for doctor-service's REST API, just what a caller needs to fail fast on a
+// bad id instead of silently persisting an appointment for a doctor that doesn't exist.
+service DoctorLookup {
+  rpc GetDoctor (DoctorLookupRequest) returns (DoctorLookupResponse);
+}
+
+message DoctorLookupRequest {
+  string doctor_id = 1;
+}
+
+message DoctorLookupResponse {
+  bool exists = 1;
+  string first_name = 2;
+  string last_name = 3;
+  string specialty = 4;
+}

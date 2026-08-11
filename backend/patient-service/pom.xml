@@ -48,6 +48,13 @@
       <groupId>org.springframework.kafka</groupId>
       <artifactId>spring-kafka</artifactId>
     </dependency>
+    <!-- gRPC server: exposes PatientLookup (see common/src/main/proto/patient_lookup.proto)
+         for appointment-service to validate a patientId synchronously before booking. -->
+    <dependency>
+      <groupId>net.devh</groupId>
+      <artifactId>grpc-server-spring-boot-starter</artifactId>
+      <version>${grpc-spring-boot-starter.version}</version>
+    </dependency>
     <dependency>
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>

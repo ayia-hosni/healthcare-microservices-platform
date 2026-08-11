@@ -3,6 +3,7 @@ package com.healthplatform.common.security;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -35,7 +36,14 @@ public class PlatformSecurityConfig {
         return new JwtVerifier(props.getSecret());
     }
 
+    // @Primary because org.springframework.web.servlet.handler.HandlerMappingIntrospector
+    // (the auto-configured "mvcHandlerMappingIntrospector" bean, present whenever Spring MVC
+    // is on the classpath) ALSO implements CorsConfigurationSource. Without this, autowiring
+    // CorsConfigurationSource below by type is ambiguous and the whole context fails to start
+    // with a NoUniqueBeanDefinitionException — this went unnoticed until a service actually
+    // exercised full Spring context startup end-to-end.
     @Bean
+    @Primary
     public CorsConfigurationSource corsConfigurationSource(CorsProperties corsProperties) {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(corsProperties.getAllowedOrigins());

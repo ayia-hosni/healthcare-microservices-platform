@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
+import org.springframework.kafka.core.KafkaOperations;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
@@ -27,8 +28,14 @@ import java.util.Map;
 @Configuration
 public class KafkaDlqConfig {
 
+    // Declared as KafkaOperations (not KafkaTemplate) so this bean's raw type doesn't satisfy
+    // Spring Boot's @ConditionalOnMissingBean(KafkaTemplate.class) on KafkaAutoConfiguration's
+    // own KafkaTemplate<?, ?> bean. That default bean is what OutboxRelay's KafkaTemplate<String,
+    // Object> constructor parameter needs (its wildcard type generically matches); a concretely
+    // typed KafkaTemplate<Object, Object> here would suppress it and leave OutboxRelay unable to
+    // start at all (verified: this broke full Spring context startup before this fix).
     @Bean
-    public KafkaTemplate<Object, Object> dlqKafkaTemplate(
+    public KafkaOperations<Object, Object> dlqKafkaTemplate(
             @Value("${spring.kafka.bootstrap-servers}") String bootstrapServers) {
         Map<String, Object> producerProps = Map.of(
                 ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers,
@@ -39,7 +46,7 @@ public class KafkaDlqConfig {
     }
 
     @Bean
-    public DefaultErrorHandler kafkaErrorHandler(KafkaTemplate<Object, Object> dlqKafkaTemplate) {
+    public DefaultErrorHandler kafkaErrorHandler(KafkaOperations<Object, Object> dlqKafkaTemplate) {
         DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(dlqKafkaTemplate);
         // 1 initial attempt + 2 retries, 1s apart, then dead-letter.
         return new DefaultErrorHandler(recoverer, new FixedBackOff(1000L, 2));
