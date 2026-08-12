@@ -33,3 +33,13 @@ dist/
 
 # Docker
 docker-data/
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+**/terraform.tfvars
+!**/terraform.tfvars.example

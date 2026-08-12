@@ -1,0 +1,73 @@
+type Patient {
+    id: ID!
+    firstName: String!
+    lastName: String!
+    dateOfBirth: String!
+    email: String!
+    phoneNumber: String
+}
+
+type Doctor {
+    id: ID!
+    firstName: String!
+    lastName: String!
+    specialty: String!
+    departmentName: String
+}
+
+enum AppointmentStatus {
+    SCHEDULED
+    CONFIRMED
+    CANCELLED
+    COMPLETED
+    NO_SHOW
+}
+
+type Appointment {
+    id: ID!
+    patientId: ID!
+    doctorId: ID!
+    scheduledStart: String!
+    scheduledEnd: String!
+    status: AppointmentStatus!
+    # Resolved via a nested call to patient-service/doctor-service by patientId/doctorId —
+    # this is the actual aggregation value of the gateway: one query instead of three.
+    patient: Patient
+    doctor: Doctor
+}
+
+enum InvoiceStatus {
+    PENDING
+    PAID
+    OVERDUE
+    CANCELLED
+}
+
+type Invoice {
+    id: ID!
+    patientId: ID!
+    appointmentId: ID!
+    amount: Float!
+    currency: String!
+    status: InvoiceStatus!
+    dueDate: String!
+}
+
+type Query {
+    patient(id: ID!): Patient
+    doctor(id: ID!): Doctor
+    appointment(id: ID!): Appointment
+    invoice(id: ID!): Invoice
+}
+
+input BookAppointmentInput {
+    patientId: ID!
+    doctorId: ID!
+    scheduledStart: String!
+    scheduledEnd: String!
+    idempotencyKey: String!
+}
+
+type Mutation {
+    bookAppointment(input: BookAppointmentInput!): Appointment!
+}

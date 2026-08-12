@@ -28,6 +28,8 @@ replicas:
     count: 1
   - name: analytics-service
     count: 1
+  - name: graphql-gateway
+    count: 1
   - name: frontend
     count: 1
 
@@ -84,6 +86,8 @@ patches:
   - path: patches/image-pull-policy.yaml
     target: { kind: Deployment, name: analytics-service }
   - path: patches/image-pull-policy.yaml
+    target: { kind: Deployment, name: graphql-gateway }
+  - path: patches/image-pull-policy.yaml
     target: { kind: Deployment, name: frontend }
 
   # Every app service's application.yml hardcodes Kafka security.protocol: SASL_SSL against
@@ -138,3 +142,5 @@ patches:
     target: { kind: Deployment, name: audit-service }
   - path: patches/dev-resources.yaml
     target: { kind: Deployment, name: analytics-service }
+  - path: patches/dev-resources.yaml
+    target: { kind: Deployment, name: graphql-gateway }

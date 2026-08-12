@@ -1,5 +1,6 @@
 package com.healthplatform.appointment;
 
+import com.healthplatform.appointment.grpc.BookingValidationClient;
 import com.healthplatform.appointment.web.dto.AppointmentResponse;
 import com.healthplatform.appointment.web.dto.BookAppointmentRequest;
 import com.healthplatform.common.dto.ErrorResponse;
@@ -9,6 +10,7 @@ import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpEntity;
@@ -63,6 +65,13 @@ class AppointmentBookingIntegrationTest {
 
     @Autowired
     private OutboxEventRepository outboxEventRepository;
+
+    // This test's focus is the double-booking/idempotency path against a real Postgres, not
+    // cross-service connectivity — patient-service/doctor-service aren't part of this test's
+    // Testcontainers setup, so the real gRPC stubs would otherwise fail every booking with
+    // UNAVAILABLE. A plain mock() no-ops the void requireXExists methods, i.e. "exists".
+    @MockBean
+    private BookingValidationClient bookingValidationClient;
 
     private static final String JWT_SECRET = "change-me-in-production-this-must-be-at-least-32-bytes-long";
 

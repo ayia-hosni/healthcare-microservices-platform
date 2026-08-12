@@ -50,6 +50,10 @@ spec:
                 secretKeyRef:
                   name: platform-secrets
                   key: KAFKA_SASL_PASSWORD_APPOINTMENT
+            - name: PATIENT_SERVICE_GRPC_HOST
+              value: "patient-service.healthcare-platform.svc.cluster.local"
+            - name: DOCTOR_SERVICE_GRPC_HOST
+              value: "doctor-service.healthcare-platform.svc.cluster.local"
           readinessProbe:
             httpGet:
               path: /actuator/health/readiness

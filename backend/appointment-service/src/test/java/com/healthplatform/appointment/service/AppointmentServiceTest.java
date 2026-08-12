@@ -3,6 +3,7 @@ package com.healthplatform.appointment.service;
 import com.healthplatform.appointment.domain.Appointment;
 import com.healthplatform.appointment.domain.AppointmentStatus;
 import com.healthplatform.appointment.event.AppointmentEventPublisher;
+import com.healthplatform.appointment.grpc.BookingValidationClient;
 import com.healthplatform.appointment.repository.AppointmentRepository;
 import com.healthplatform.appointment.web.dto.AppointmentResponse;
 import com.healthplatform.appointment.web.dto.BookAppointmentRequest;
@@ -26,12 +27,15 @@ import static org.mockito.Mockito.*;
  * AppointmentRepository and AppointmentEventPublisher (which itself wraps the outbox — see
  * AppointmentEventPublisher) are mocked; the DB-level unique constraint and the pessimistic
  * lock taken by findConflicting() are covered separately by the Testcontainers integration test,
- * since neither can be meaningfully exercised against a mock.
+ * since neither can be meaningfully exercised against a mock. BookingValidationClient is also
+ * mocked — a plain mock() is a no-op for its void requireXExists methods, so the happy-path
+ * tests below get "patient/doctor exists" for free; the not-found tests stub it explicitly.
  */
 class AppointmentServiceTest {
 
     private AppointmentRepository appointmentRepository;
     private AppointmentEventPublisher eventPublisher;
+    private BookingValidationClient bookingValidationClient;
     private AppointmentService appointmentService;
 
     private final UUID patientId = UUID.randomUUID();
@@ -43,7 +47,8 @@ class AppointmentServiceTest {
     void setUp() {
         appointmentRepository = mock(AppointmentRepository.class);
         eventPublisher = mock(AppointmentEventPublisher.class);
-        appointmentService = new AppointmentService(appointmentRepository, eventPublisher);
+        bookingValidationClient = mock(BookingValidationClient.class);
+        appointmentService = new AppointmentService(appointmentRepository, eventPublisher, bookingValidationClient);
     }
 
     @Test
@@ -65,6 +70,39 @@ class AppointmentServiceTest {
         assertThat(response.patientId()).isEqualTo(patientId);
         verify(appointmentRepository).save(any(Appointment.class));
         verify(eventPublisher).publishCreated(any(), any(), any());
+    }
+
+    @Test
+    void bookThrowsWhenPatientDoesNotExist() {
+        when(appointmentRepository.findByIdempotencyKey("key-patient-404")).thenReturn(Optional.empty());
+        doThrow(new ResourceNotFoundException("Patient not found: " + patientId))
+                .when(bookingValidationClient).requirePatientExists(patientId);
+
+        assertThatThrownBy(() -> appointmentService.book(
+                new BookAppointmentRequest(patientId, doctorId, start, end, "key-patient-404")))
+                .isInstanceOf(ResourceNotFoundException.class);
+
+        verify(appointmentRepository, never()).findConflicting(any(), any());
+        verify(appointmentRepository, never()).save(any());
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void bookThrowsWhenDoctorDoesNotExist() {
+        when(appointmentRepository.findByIdempotencyKey("key-doctor-404")).thenReturn(Optional.empty());
+        doThrow(new ResourceNotFoundException("Doctor not found: " + doctorId))
+                .when(bookingValidationClient).requireDoctorExists(doctorId);
+
+        assertThatThrownBy(() -> appointmentService.book(
+                new BookAppointmentRequest(patientId, doctorId, start, end, "key-doctor-404")))
+                .isInstanceOf(ResourceNotFoundException.class);
+
+        // Patient check runs before the doctor check (see AppointmentService.book), so it
+        // still fires; only the conflict check/save/event are skipped.
+        verify(bookingValidationClient).requirePatientExists(patientId);
+        verify(appointmentRepository, never()).findConflicting(any(), any());
+        verify(appointmentRepository, never()).save(any());
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test
@@ -100,6 +138,7 @@ class AppointmentServiceTest {
         verify(appointmentRepository, never()).findConflicting(any(), any());
         verify(appointmentRepository, never()).save(any());
         verifyNoInteractions(eventPublisher);
+        verifyNoInteractions(bookingValidationClient);
     }
 
     @Test

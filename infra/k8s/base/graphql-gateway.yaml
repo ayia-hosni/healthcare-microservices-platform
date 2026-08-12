@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: graphql-gateway
+  namespace: healthcare-platform
+  labels:
+    app: graphql-gateway
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: graphql-gateway
+  template:
+    metadata:
+      labels:
+        app: graphql-gateway
+    spec:
+      containers:
+        - name: graphql-gateway
+          image: healthcare-platform/graphql-gateway:latest
+          ports:
+            - containerPort: 8090
+          env:
+            - name: PATIENT_SERVICE_URL
+              value: "http://patient-service.healthcare-platform.svc.cluster.local:8082"
+            - name: DOCTOR_SERVICE_URL
+              value: "http://doctor-service.healthcare-platform.svc.cluster.local:8083"
+            - name: APPOINTMENT_SERVICE_URL
+              value: "http://appointment-service.healthcare-platform.svc.cluster.local:8084"
+            - name: BILLING_SERVICE_URL
+              value: "http://billing-service.healthcare-platform.svc.cluster.local:8086"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8090
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8090
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "384Mi"
+            limits:
+              cpu: "1000m"
+              memory: "768Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: graphql-gateway
+  namespace: healthcare-platform
+spec:
+  selector:
+    app: graphql-gateway
+  ports:
+    - port: 8090
+      targetPort: 8090
+  type: ClusterIP

@@ -1,0 +1,35 @@
+server:
+  port: 8090
+
+spring:
+  application:
+    name: graphql-gateway
+  graphql:
+    graphiql:
+      enabled: true
+    path: /graphql
+
+# Base URLs for the REST APIs this gateway aggregates. Defaults match running each service
+# directly on localhost; docker-compose.yml overrides these to the service DNS names.
+services:
+  patient:
+    base-url: ${PATIENT_SERVICE_URL:http://localhost:8082}
+  doctor:
+    base-url: ${DOCTOR_SERVICE_URL:http://localhost:8083}
+  appointment:
+    base-url: ${APPOINTMENT_SERVICE_URL:http://localhost:8084}
+  billing:
+    base-url: ${BILLING_SERVICE_URL:http://localhost:8086}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: graphql-gateway

@@ -20,6 +20,8 @@ spec:
           image: healthcare-platform/doctor-service:latest
           ports:
             - containerPort: 8083
+            - containerPort: 9083
+              name: grpc
           envFrom:
             - configMapRef:
                 name: platform-config
@@ -81,4 +83,8 @@ spec:
   ports:
     - port: 8083
       targetPort: 8083
+      name: http
+    - port: 9083
+      targetPort: 9083
+      name: grpc
   type: ClusterIP

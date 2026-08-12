@@ -21,6 +21,7 @@
     <module>notification-service</module>
     <module>audit-service</module>
     <module>analytics-service</module>
+    <module>graphql-gateway</module>
   </modules>
 
   <properties>

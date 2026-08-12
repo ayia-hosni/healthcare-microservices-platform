@@ -14,4 +14,5 @@ resources:
   - notification-service.yaml
   - audit-service.yaml
   - analytics-service.yaml
+  - graphql-gateway.yaml
   - frontend.yaml
