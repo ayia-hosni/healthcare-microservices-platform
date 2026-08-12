@@ -15,7 +15,7 @@ public class Diagnosis {
     @JoinColumn(name = "encounter_id")
     private Encounter encounter;
 
-    @Column(nullable = false)
+    @Column(name = "icd10_code", nullable = false)
     private String icd10Code;
 
     @Column(nullable = false)

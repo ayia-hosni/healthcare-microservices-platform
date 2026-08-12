@@ -2,9 +2,9 @@
 FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /workspace
 COPY . /workspace
-RUN mvn -q -f pom.xml -pl common,identity-service -am dependency:go-offline
+RUN --mount=type=cache,target=/root/.m2 mvn -q -f pom.xml -pl common,identity-service -am dependency:go-offline
 
-RUN mvn -q -f pom.xml -pl identity-service -am package -Dmaven.test.skip=true
+RUN --mount=type=cache,target=/root/.m2 mvn -q -f pom.xml -pl identity-service -am package -Dmaven.test.skip=true
 
 # --- Runtime stage ---
 FROM eclipse-temurin:21-jre-alpine

@@ -41,7 +41,7 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -52,7 +52,7 @@ services:
     ports:
       - "6379:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -66,7 +66,7 @@ services:
     # ("not in the whitelist") unless 4lw.commands.whitelist is opened up, which isn't worth
     # doing just for a healthcheck. A bare TCP accept check is enough to gate kafka's startup.
     healthcheck:
-      test: ["CMD-SHELL", "echo > /dev/tcp/localhost/2181 || exit 1"]
+      test: [ "CMD-SHELL", "echo > /dev/tcp/localhost/2181 || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -165,7 +165,7 @@ services:
     # bare TCP accept check is a weaker signal but a dependable one: it just confirms the
     # broker is listening, which is enough for the other services' depends_on to wait on.
     healthcheck:
-      test: ["CMD-SHELL", "bash -c 'cat < /dev/null > /dev/tcp/localhost/9092' || exit 1"]
+      test: [ "CMD-SHELL", "bash -c 'cat < /dev/null > /dev/tcp/localhost/9092' || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -181,7 +181,7 @@ services:
       - "5672:5672"
       - "15672:15672" # management UI
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -200,7 +200,7 @@ services:
         limits:
           memory: 1G
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      test: [ "CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1" ]
       interval: 15s
       timeout: 5s
       retries: 10
@@ -219,7 +219,7 @@ services:
     volumes:
       - minio-data:/data
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:9000/minio/health/live"]
+      test: [ "CMD", "curl", "-sf", "http://localhost:9000/minio/health/live" ]
       interval: 10s
       timeout: 5s
       retries: 5
