@@ -48,7 +48,3 @@ management:
   metrics:
     tags:
       application: audit-service
-
-springdoc:
-  swagger-ui:
-    path: /swagger-ui.html

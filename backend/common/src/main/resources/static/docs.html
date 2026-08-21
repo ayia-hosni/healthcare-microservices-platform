@@ -1,0 +1,18 @@
+<!doctype html>
+<html>
+  <head>
+    <title>API Docs</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body { margin: 0; padding: 0; }
+    </style>
+  </head>
+  <body>
+    <!-- spec-url is relative so this page works unmodified behind any host/port/reverse-proxy
+         prefix each service is deployed under. -->
+    <redoc spec-url="v3/api-docs"></redoc>
+    <!-- Version segment must match ${redoc.version} in backend/pom.xml -->
+    <script src="webjars/redoc/2.5.0/bundles/redoc.standalone.js"></script>
+  </body>
+</html>

@@ -64,7 +64,7 @@ public class PlatformSecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource))
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/actuator/health/**", "/v3/api-docs/**", "/swagger-ui/**").permitAll()
+                .requestMatchers("/actuator/health/**", "/v3/api-docs/**", "/docs.html", "/webjars/**").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(new ResourceServerJwtFilter(jwtVerifier), UsernamePasswordAuthenticationFilter.class);

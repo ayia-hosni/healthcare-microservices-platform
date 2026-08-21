@@ -31,6 +31,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <spring-boot.version>3.3.2</spring-boot.version>
     <springdoc.version>2.5.0</springdoc.version>
+    <redoc.version>2.5.0</redoc.version>
     <jjwt.version>0.12.5</jjwt.version>
     <testcontainers.version>1.19.8</testcontainers.version>
     <!-- Spring Boot 3.3.2 manages Mockito 5.11.0 (Byte Buddy 1.14.18), which predates JDK 25 and

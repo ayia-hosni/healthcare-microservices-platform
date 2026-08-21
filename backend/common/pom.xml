@@ -64,6 +64,37 @@
       <artifactId>spring-boot-starter-web</artifactId>
     </dependency>
 
+    <!-- io.swagger.v3.oas.models classes only (no webmvc/UI) for the shared OpenApiConfig bean;
+         every REST service pulls springdoc-openapi-starter-webmvc-api (spec generation only, see
+         each service's pom) at the same ${springdoc.version}, so this stays in sync with those. -->
+    <dependency>
+      <groupId>org.springdoc</groupId>
+      <artifactId>springdoc-openapi-starter-common</artifactId>
+      <version>${springdoc.version}</version>
+    </dependency>
+
+    <!-- Self-hosted Redoc (docs UI) instead of Swagger UI: a webjar so it's resolved once from
+         Maven Central and cached like any other dependency, no CDN <script> tag at request time.
+         Landing in common/src/main/resources/static (see docs.html) means every service that
+         depends on common gets /docs.html and /webjars/redoc/** for free — Spring Boot serves
+         static resources from classpath:/META-INF/resources/ and classpath:/static/ across all
+         jars on the classpath, not just the app's own module. -->
+    <dependency>
+      <groupId>org.webjars.npm</groupId>
+      <artifactId>redoc</artifactId>
+      <version>${redoc.version}</version>
+      <!-- Only the pre-built bundles/redoc.standalone.js inside this jar is used; the npm
+           package's own dependency graph (unresolvable version ranges on Maven Central for
+           @redocly/config etc.) is irrelevant to serving a static file and breaks resolution
+           if pulled in. -->
+      <exclusions>
+        <exclusion>
+          <groupId>*</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
     <!-- Needed for the shared outbox mechanism (OutboxEvent/OutboxEventRepository/OutboxRelay) -->
     <dependency>
       <groupId>org.springframework.boot</groupId>

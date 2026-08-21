@@ -61,7 +61,3 @@ management:
   metrics:
     tags:
       application: doctor-service
-
-springdoc:
-  swagger-ui:
-    path: /swagger-ui.html

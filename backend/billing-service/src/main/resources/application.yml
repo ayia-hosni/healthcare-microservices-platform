@@ -54,7 +54,3 @@ management:
   metrics:
     tags:
       application: billing-service
-
-springdoc:
-  swagger-ui:
-    path: /swagger-ui.html

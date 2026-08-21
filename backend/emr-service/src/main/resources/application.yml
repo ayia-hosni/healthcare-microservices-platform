@@ -59,7 +59,3 @@ management:
   metrics:
     tags:
       application: emr-service
-
-springdoc:
-  swagger-ui:
-    path: /swagger-ui.html

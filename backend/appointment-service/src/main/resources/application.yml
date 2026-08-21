@@ -70,7 +70,3 @@ management:
   metrics:
     tags:
       application: appointment-service
-
-springdoc:
-  swagger-ui:
-    path: /swagger-ui.html
