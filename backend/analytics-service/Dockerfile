@@ -1,7 +1,21 @@
 FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /workspace
-COPY . /workspace
-RUN --mount=type=cache,target=/root/.m2 mvn -q -f pom.xml -pl common,analytics-service -am dependency:go-offline
+COPY pom.xml /workspace/pom.xml
+COPY common/pom.xml /workspace/common/pom.xml
+COPY identity-service/pom.xml /workspace/identity-service/pom.xml
+COPY patient-service/pom.xml /workspace/patient-service/pom.xml
+COPY doctor-service/pom.xml /workspace/doctor-service/pom.xml
+COPY appointment-service/pom.xml /workspace/appointment-service/pom.xml
+COPY emr-service/pom.xml /workspace/emr-service/pom.xml
+COPY billing-service/pom.xml /workspace/billing-service/pom.xml
+COPY notification-service/pom.xml /workspace/notification-service/pom.xml
+COPY audit-service/pom.xml /workspace/audit-service/pom.xml
+COPY analytics-service/pom.xml /workspace/analytics-service/pom.xml
+COPY graphql-gateway/pom.xml /workspace/graphql-gateway/pom.xml
+RUN --mount=type=cache,target=/root/.m2 mvn -q -f pom.xml -pl common,analytics-service -am dependency:resolve
+
+COPY common /workspace/common
+COPY analytics-service /workspace/analytics-service
 RUN --mount=type=cache,target=/root/.m2 mvn -q -f pom.xml -pl analytics-service -am package -Dmaven.test.skip=true
 
 FROM eclipse-temurin:21-jre-alpine
