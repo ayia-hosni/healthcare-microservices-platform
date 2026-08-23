@@ -144,3 +144,54 @@ patches:
     target: { kind: Deployment, name: analytics-service }
   - path: patches/dev-resources.yaml
     target: { kind: Deployment, name: graphql-gateway }
+
+  # Kubernetes auto-injects <SVC>_PORT-style env vars for every Service in the namespace into
+  # every pod (legacy Docker-links behavior). Harmless for these Spring services in practice,
+  # but disabled uniformly since datastores/kafka.yaml proved this collision is a real,
+  # silent-crash risk (KAFKA_PORT vs. Kafka's own deprecated `port` config knob).
+  - path: patches/no-service-links.yaml
+    target: { kind: Deployment, name: identity-service }
+  - path: patches/no-service-links.yaml
+    target: { kind: Deployment, name: patient-service }
+  - path: patches/no-service-links.yaml
+    target: { kind: Deployment, name: doctor-service }
+  - path: patches/no-service-links.yaml
+    target: { kind: Deployment, name: appointment-service }
+  - path: patches/no-service-links.yaml
+    target: { kind: Deployment, name: emr-service }
+  - path: patches/no-service-links.yaml
+    target: { kind: Deployment, name: billing-service }
+  - path: patches/no-service-links.yaml
+    target: { kind: Deployment, name: notification-service }
+  - path: patches/no-service-links.yaml
+    target: { kind: Deployment, name: audit-service }
+  - path: patches/no-service-links.yaml
+    target: { kind: Deployment, name: analytics-service }
+  - path: patches/no-service-links.yaml
+    target: { kind: Deployment, name: frontend }
+
+  # Base's liveness/readiness probes have no explicit timeoutSeconds, defaulting to 1s —
+  # too tight for a JVM under the tighter dev-resources CPU limit (750m). A single slow
+  # actuator response (GC pause, CPU throttling) during 3 consecutive checks was enough to
+  # get a perfectly healthy pod killed. Relaxing the timeout/failure threshold here rather
+  # than in base, since a real cluster wouldn't need this.
+  - path: patches/relaxed-probes.yaml
+    target: { kind: Deployment, name: identity-service }
+  - path: patches/relaxed-probes.yaml
+    target: { kind: Deployment, name: patient-service }
+  - path: patches/relaxed-probes.yaml
+    target: { kind: Deployment, name: doctor-service }
+  - path: patches/relaxed-probes.yaml
+    target: { kind: Deployment, name: appointment-service }
+  - path: patches/relaxed-probes.yaml
+    target: { kind: Deployment, name: emr-service }
+  - path: patches/relaxed-probes.yaml
+    target: { kind: Deployment, name: billing-service }
+  - path: patches/relaxed-probes.yaml
+    target: { kind: Deployment, name: notification-service }
+  - path: patches/relaxed-probes.yaml
+    target: { kind: Deployment, name: audit-service }
+  - path: patches/relaxed-probes.yaml
+    target: { kind: Deployment, name: analytics-service }
+  - path: patches/relaxed-probes.yaml
+    target: { kind: Deployment, name: graphql-gateway }

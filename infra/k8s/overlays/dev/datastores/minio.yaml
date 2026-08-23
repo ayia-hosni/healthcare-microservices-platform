@@ -18,6 +18,7 @@ spec:
       labels:
         app: minio
     spec:
+      enableServiceLinks: false
       containers:
         - name: minio
           image: minio/minio:latest

@@ -16,6 +16,7 @@ spec:
       labels:
         app: zookeeper
     spec:
+      enableServiceLinks: false
       containers:
         - name: zookeeper
           image: confluentinc/cp-zookeeper:7.6.0

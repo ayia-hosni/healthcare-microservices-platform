@@ -20,6 +20,12 @@ spec:
       labels:
         app: kafka
     spec:
+      # Kubernetes auto-injects a KAFKA_PORT=tcp://<clusterIP>:9092 env var into every pod in
+      # this namespace once a Service named "kafka" exists (the legacy Docker-links-style
+      # "service link" behavior). cp-kafka's entrypoint treats KAFKA_PORT as the deprecated
+      # `port` config knob and tries to parse that URL as a bare port number, crashing
+      # instantly. This turns off that env var injection for this pod.
+      enableServiceLinks: false
       containers:
         - name: kafka
           image: confluentinc/cp-kafka:7.6.0
