@@ -1,22 +1,17 @@
 FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /workspace
 COPY pom.xml /workspace/pom.xml
-COPY common/pom.xml /workspace/common/pom.xml
-COPY identity-service/pom.xml /workspace/identity-service/pom.xml
-COPY patient-service/pom.xml /workspace/patient-service/pom.xml
-COPY doctor-service/pom.xml /workspace/doctor-service/pom.xml
-COPY appointment-service/pom.xml /workspace/appointment-service/pom.xml
-COPY emr-service/pom.xml /workspace/emr-service/pom.xml
-COPY billing-service/pom.xml /workspace/billing-service/pom.xml
-COPY notification-service/pom.xml /workspace/notification-service/pom.xml
-COPY audit-service/pom.xml /workspace/audit-service/pom.xml
-COPY analytics-service/pom.xml /workspace/analytics-service/pom.xml
-COPY graphql-gateway/pom.xml /workspace/graphql-gateway/pom.xml
-RUN --mount=type=cache,target=/root/.m2 mvn -q -f pom.xml -pl common,doctor-service -am dependency:resolve
+RUN --mount=type=cache,target=/root/.m2 mvn -q -N -f pom.xml install
 
-COPY common /workspace/common
-COPY doctor-service /workspace/doctor-service
-RUN --mount=type=cache,target=/root/.m2 mvn -q -f pom.xml -pl doctor-service -am package -Dmaven.test.skip=true
+COPY common/pom.xml /workspace/common/pom.xml
+COPY common/src /workspace/common/src
+RUN --mount=type=cache,target=/root/.m2 mvn -q -f common/pom.xml install -Dmaven.test.skip=true
+
+COPY doctor-service/pom.xml /workspace/doctor-service/pom.xml
+RUN --mount=type=cache,target=/root/.m2 mvn -q -f doctor-service/pom.xml dependency:resolve
+
+COPY doctor-service/src /workspace/doctor-service/src
+RUN --mount=type=cache,target=/root/.m2 mvn -q -f doctor-service/pom.xml package -Dmaven.test.skip=true
 
 FROM eclipse-temurin:21-jre-alpine
 RUN addgroup -S spring && adduser -S spring -G spring
