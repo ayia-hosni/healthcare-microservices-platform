@@ -1,0 +1,10 @@
+# Without this, SecureRandom (used by Spring Security's generated-password bean, JWT signing,
+# UUID generation, etc.) defaults to blocking /dev/random for entropy. In this dev cluster —
+# multiple JVMs starting cold at once, few hardware entropy sources — that blocks each service's
+# boot for 15-20+ minutes at the "Using generated security password" step. JAVA_TOOL_OPTIONS is
+# read automatically by the JVM at launch, so this doesn't require an image rebuild.
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: JAVA_TOOL_OPTIONS
+    value: "-Djava.security.egd=file:/dev/./urandom"

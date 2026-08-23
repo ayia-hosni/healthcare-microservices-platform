@@ -121,6 +121,29 @@ patches:
   - path: patches/quartz-memory.yaml
     target: { kind: Deployment, name: analytics-service }
 
+  # Force the JVM off blocking /dev/random for SecureRandom (see patches/java-urandom.yaml) —
+  # without this, Spring Security's generated-password bean can stall boot for 15-20+ minutes.
+  - path: patches/java-urandom.yaml
+    target: { kind: Deployment, name: identity-service }
+  - path: patches/java-urandom.yaml
+    target: { kind: Deployment, name: patient-service }
+  - path: patches/java-urandom.yaml
+    target: { kind: Deployment, name: doctor-service }
+  - path: patches/java-urandom.yaml
+    target: { kind: Deployment, name: appointment-service }
+  - path: patches/java-urandom.yaml
+    target: { kind: Deployment, name: emr-service }
+  - path: patches/java-urandom.yaml
+    target: { kind: Deployment, name: billing-service }
+  - path: patches/java-urandom.yaml
+    target: { kind: Deployment, name: notification-service }
+  - path: patches/java-urandom.yaml
+    target: { kind: Deployment, name: audit-service }
+  - path: patches/java-urandom.yaml
+    target: { kind: Deployment, name: analytics-service }
+  - path: patches/java-urandom.yaml
+    target: { kind: Deployment, name: graphql-gateway }
+
   # Lower requests/limits so all 9 services + datastores fit comfortably in a local minikube
   # VM. Base's values (250m/384Mi request, 1000m/768Mi limit per service) assume a real
   # cluster with room to spare.
