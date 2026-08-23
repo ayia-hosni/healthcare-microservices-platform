@@ -16,3 +16,4 @@ resources:
   - analytics-service.yaml
   - graphql-gateway.yaml
   - frontend.yaml
+  - ingress.yaml

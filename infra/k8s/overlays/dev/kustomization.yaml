@@ -34,6 +34,25 @@ replicas:
     count: 1
 
 patches:
+  # Every service's CorsProperties defaults CORS_ALLOWED_ORIGINS to the production placeholder
+  # https://app.example-health.com (see backend/common's CorsProperties javadoc — intentional,
+  # HIPAA-adjacent platforms shouldn't default to "*"). Unoverridden, the browser's actual dev
+  # origin gets rejected by Spring's CORS filter with a bare 403 *before* authentication even
+  # runs (bypassing SecurityConfig's custom 401-for-unauthenticated entry point entirely) —
+  # looks like an auth failure but isn't one. Origins here match the two ways the README's
+  # "Deploy to Kubernetes" section tells you to reach the frontend: `kubectl port-forward
+  # svc/frontend 8080:80` and `ng serve`'s default port.
+  - target:
+      kind: ConfigMap
+      name: platform-config
+    patch: |-
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: platform-config
+      data:
+        CORS_ALLOWED_ORIGINS: "http://localhost:8080,http://localhost:4200"
+
   # Real, working dev credentials in place of base's placeholder secrets. Values here are
   # deliberately paired with the datastore manifests: DB_PASSWORD matches the password baked
   # into datastores/postgres.yaml's POSTGRES_MULTIPLE_DATABASES, and RABBITMQ_USER/PASSWORD
