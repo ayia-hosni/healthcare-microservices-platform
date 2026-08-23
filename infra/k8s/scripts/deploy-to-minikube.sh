@@ -6,6 +6,9 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 
+echo "==> Enabling minikube's ingress addon (no-op if already enabled)"
+minikube addons enable ingress
+
 SERVICES=(
   identity-service
   patient-service
@@ -41,5 +44,7 @@ echo "==> Waiting for deployments to become available (first run can take severa
 kubectl -n healthcare-platform wait --for=condition=available --timeout=600s deployment --all \
   || echo "Some deployments aren't ready yet — check: kubectl -n healthcare-platform get pods"
 
-echo "==> Frontend URL"
-minikube service frontend -n healthcare-platform --url
+echo "==> App is served through the Ingress (infra/k8s/base/ingress.yaml), not exposed directly."
+echo "In another terminal, run:"
+echo "    kubectl -n ingress-nginx port-forward svc/ingress-nginx-controller 8080:80"
+echo "then open http://localhost:8080/"

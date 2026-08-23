@@ -15,42 +15,74 @@ The platform consists of **9 Spring Boot microservices** built with **Java 21**,
 ```text
                                   ┌─────────────────┐
                                   │     Frontend    │
+                                  │   (static SPA)  │
                                   └────────┬────────┘
                                            │
                                            ▼
-                                  ┌─────────────────┐
-                                  │   API Gateway   │
-                                  └────────┬────────┘
-                                           │
-                 ┌─────────────────────────┼─────────────────────────┐
-                 │                         │                         │
-                 ▼                         ▼                         ▼
-        ┌─────────────────┐      ┌─────────────────┐      ┌─────────────────┐
-        │ Identity Service│      │ Patient Service │      │ Doctor Service  │
-        └─────────────────┘      └─────────────────┘      └─────────────────┘
-                 │                         │                         │
-                 └─────────────────────────┼─────────────────────────┘
-                                           │
-                                           ▼
-                                  ┌─────────────────┐
-                                  │     Kafka       │
-                                  │ Event Streaming │
-                                  └────────┬────────┘
-                                           │
-              ┌────────────────────────────┼───────────────────────────┐
-              │                            │                           │
-              ▼                            ▼                           ▼
-     ┌─────────────────┐         ┌─────────────────┐         ┌─────────────────┐
-     │ Audit Service   │         │ Analytics       │         │ Notification    │
-     │                 │         │ Service         │         │ Service         │
-     └─────────────────┘         └─────────────────┘         └────────┬────────┘
-                                                                       │
-                                                                       ▼
-                                                               ┌───────────────┐
-                                                               │   RabbitMQ    │
-                                                               │ Retry + DLQ   │
-                                                               └───────────────┘
+                                  ┌───────────────────┐
+                                  │  Ingress (nginx)  │  single external entry point
+                                  └─────────┬──────────┘
+                                            │
+        ┌───────────────┬───────────────┬──┴────────────┬────────────────┐
+        ▼                ▼               ▼               ▼                ▼
+ /api/v1/auth   /api/v1/patients /api/v1/doctors /api/v1/appointments  /graphql, /graphiql
+        │                │               │               │                │
+        ▼                ▼               ▼               ▼                ▼
+┌───────────────┐┌───────────────┐┌───────────────┐┌───────────────┐┌────────────────────┐
+│Identity Service││Patient Service││Doctor Service ││Appointment Svc││  graphql-gateway    │
+└───────┬────────┘└───────┬───────┘└───────┬───────┘└───────┬───────┘│   (GraphQL BFF)     │
+        ▼                 ▼                ▼                ▼        │  calls patient/     │
+   identity_db        patient_db       doctor_db      appointment_db  │  doctor/appointment/ │
+                                                                       │  billing over REST — │
+                                                                       │  routable today, not  │
+                                                                       │  yet called by the   │
+                                                                       │  frontend (ADR-0001) │
+                                                                       └──────────┬───────────┘
+                                                                                  ▼
+                                                                             billing_db
 
+  EMR / Notification / Audit / Analytics services: no Ingress route today — internal-only,
+  either event-driven consumers or backend-internal with no UI consumer (intentional, not
+  an oversight — see docs/adr/0001-api-gateway-ingress.md). Each still owns its own database.
+```
+
+Asynchronous flow between services (separate from the request path above):
+
+```text
+┌─────────────────┐┌─────────────────┐┌─────────────────┐┌─────────────────┐
+│ Patient Service ││ Doctor Service  ││Appointment Svc  ││  EMR Service    │
+└────────┬────────┘└────────┬────────┘└────────┬────────┘└────────┬────────┘
+         │                  │                  │                  │
+         └──────────────────┴────────┬─────────┴──────────────────┘
+                                      ▼
+                            ┌───────────────────┐
+                            │       Kafka        │  event backbone (outbox pattern)
+                            └─────────┬──────────┘
+                                      │
+        ┌─────────────────┬──────────┼──────────┬─────────────────────┐
+        ▼                 ▼          ▼          ▼                     ▼
+┌───────────────┐┌───────────────┐┌───────────────┐┌─────────────────────┐
+│Billing Service││ Audit Service ││Analytics Svc  ││Notification Service │
+│(also publishes││               ││               ││                      │
+│ back to Kafka)││               ││               ││                      │
+└───────────────┘└───────────────┘└───────────────┘└──────────┬───────────┘
+                                                                │ internal only
+                                                                ▼
+                                                        ┌───────────────┐
+                                                        │   RabbitMQ    │
+                                                        │ Retry + DLQ   │
+                                                        └───────┬───────┘
+                                                                ▼
+                                                     @RabbitListener → send
+                                                        (email/SMS/push)
+
+  RabbitMQ is used only inside notification-service (Kafka listener re-publishes
+  internally, a separate listener sends). billing/audit/analytics have no RabbitMQ
+  dependency at all; identity-service touches neither Kafka nor RabbitMQ — see
+  docs/adr/0002-messaging-topology.md.
+```
+
+```text
        ┌──────────────────────────────────────────────────────────────────────┐
        │                         Business Services                             │
        │                                                                      │
@@ -469,10 +501,26 @@ kubectl -n healthcare-platform get pods -w
 A few `CrashLoopBackOff` restarts on cold start are expected — services retry until Postgres/
 Kafka/MinIO are ready (see "Startup order note" in `infra/k8s/README.md`).
 
-**4. Open the frontend:**
+**4. Open the app** — everything (frontend, the 4 REST APIs it calls, and the GraphQL BFF)
+is served through one Ingress (`infra/k8s/base/ingress.yaml`); `deploy-to-minikube.sh`
+already ran `minikube addons enable ingress` for you:
 
 ```bash
-minikube service frontend -n healthcare-platform --url
+kubectl -n ingress-nginx port-forward svc/ingress-nginx-controller 8080:80
+```
+
+- `http://localhost:8080/` — the Angular frontend
+- `http://localhost:8080/api/v1/{auth,patients,doctors,appointments}/...` — the 4 REST
+  services the frontend actually calls today
+- `http://localhost:8080/graphiql` — the GraphQL BFF (`graphql-gateway`), aggregating
+  patient/doctor/appointment/billing behind one schema. Built and routable, but the
+  frontend doesn't call it yet — see `docs/adr/0001-api-gateway-ingress.md`.
+
+To bypass the Ingress and hit an individual Service directly (debugging only),
+port-forward it the same way — port numbers match `kubectl -n healthcare-platform get svc`:
+
+```bash
+kubectl -n healthcare-platform port-forward svc/identity-service 8081:8081   # -> http://localhost:8081
 ```
 
 **5. Redeploy after a code change** — rebuild and reload just the changed service, then
@@ -516,7 +564,7 @@ See `infra/k8s/README.md` for the full manifest layout, the dev-overlay deviatio
 | Grafana              | `http://localhost:3000`  |
 | Zipkin               | `http://localhost:9411`  |
 
-Swagger UI is available on each application service through its configured Swagger endpoint.
+API docs (self-hosted Redoc) are available on each application service at `/docs.html`.
 
 ---
 

@@ -3,12 +3,18 @@
 ## Layout
 
 - **`base/`** — production-shaped manifests: the frontend + all 9 Spring Boot services,
-  a namespace, a ConfigMap, and a Secret. `DB_HOST`/`KAFKA_BOOTSTRAP_SERVERS`/`REDIS_HOST`/
-  `RABBITMQ_HOST`/`MINIO_ENDPOINT` all point at in-cluster Service DNS names
+  a namespace, a ConfigMap, a Secret, and an `Ingress` (`base/ingress.yaml`) that's the
+  platform's single external entry point — see `docs/adr/0001-api-gateway-ingress.md`.
+  It routes `/api/v1/{auth,patients,doctors,appointments}` to their owning service,
+  `/graphql`+`/graphiql` to `graphql-gateway` (the GraphQL BFF), and everything else to
+  the frontend. `DB_HOST`/`KAFKA_BOOTSTRAP_SERVERS`/`REDIS_HOST`/`RABBITMQ_HOST`/
+  `MINIO_ENDPOINT` all point at in-cluster Service DNS names
   (`postgres.healthcare-platform.svc.cluster.local`, etc.) — base does **not** include the
   datastores themselves. A real environment would point those at managed services instead
   (RDS, MSK, ElastiCache, CloudAMQP, S3) and just override the env values; this repo doesn't
-  provision that (see the comments in `base/configmap.yaml`).
+  provision that (see the comments in `base/configmap.yaml`). It also doesn't install an
+  Ingress *controller* for a real cluster (e.g. the `ingress-nginx` Helm chart on AKS) —
+  only the `Ingress` resource itself; see `docs/adr/0001-api-gateway-ingress.md`.
 - **`overlays/dev/`** — a self-contained local cluster. On top of base, it adds:
   - `datastores/` — Postgres, Redis, Zookeeper+Kafka, RabbitMQ, and MinIO as plain
     single-replica Deployments, named to match the FQDNs base already hardcodes.
@@ -43,17 +49,21 @@ minikube start --cpus=4 --memory=7168 --driver=docker
 infra/k8s/scripts/deploy-to-minikube.sh
 ```
 
-The script builds all 9 backend images (full Maven build per service — slow the first time,
-fast afterwards from Docker's layer cache) and the frontend image, loads all 10 into
-minikube, applies `overlays/dev`, waits for deployments to become available, and prints the
-frontend's URL.
+The script enables minikube's `ingress` addon, builds all 9 backend images (full Maven
+build per service — slow the first time, fast afterwards from Docker's layer cache) and
+the frontend image, loads all 10 into minikube, applies `overlays/dev`, and waits for
+deployments to become available. Everything is reachable through the Ingress — see
+"Open the app" in the main README, or:
+
+```bash
+kubectl -n ingress-nginx port-forward svc/ingress-nginx-controller 8080:80   # -> http://localhost:8080/
+```
 
 Useful follow-ups:
 
 ```bash
 kubectl -n healthcare-platform get pods -w      # watch startup
 kubectl -n healthcare-platform logs deploy/appointment-service
-minikube service frontend -n healthcare-platform --url   # get the URL again later
 ```
 
 Rebuilding after a code change: re-run the same script (Docker's cache makes unchanged

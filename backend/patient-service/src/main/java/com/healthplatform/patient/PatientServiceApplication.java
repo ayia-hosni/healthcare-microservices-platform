@@ -15,7 +15,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
         "com.healthplatform.patient",
         "com.healthplatform.common.security",
         "com.healthplatform.common.web",
-        "com.healthplatform.common.outbox"
+        "com.healthplatform.common.outbox",
+        "com.healthplatform.common.cache"
 })
 @EntityScan(basePackages = {"com.healthplatform.patient", "com.healthplatform.common.outbox"})
 @EnableJpaRepositories(basePackages = {"com.healthplatform.patient", "com.healthplatform.common.outbox"})

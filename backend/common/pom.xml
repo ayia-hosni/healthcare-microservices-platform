@@ -33,6 +33,16 @@
       <optional>true</optional>
     </dependency>
 
+    <!-- Compile classpath only for the shared RedisCacheConfig bean (see cache/RedisCacheConfig.java)
+         — optional so services that don't already pull spring-boot-starter-data-redis themselves
+         (e.g. graphql-gateway) don't inherit an unused Redis dependency transitively. Its
+         @ConditionalOnClass guard means the bean simply never activates for those services. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-redis</artifactId>
+      <optional>true</optional>
+    </dependency>
+
     <!-- Shared JWT *verification* only (no signing key generation here) so every downstream
          service can validate access tokens issued by identity-service without duplicating
          the parsing logic. -->
