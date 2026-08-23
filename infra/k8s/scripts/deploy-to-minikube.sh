@@ -16,6 +16,7 @@ SERVICES=(
   notification-service
   audit-service
   analytics-service
+  graphql-gateway
 )
 
 echo "==> Building backend images (this is a full Maven build per service — first run takes a while)"
