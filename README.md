@@ -441,6 +441,61 @@ docker compose down
 
 ---
 
+## Deploy to Kubernetes (Minikube)
+
+Once you've validated the platform with Docker Compose, the same services can be run on a
+local Kubernetes cluster via Minikube and Kustomize.
+
+**1. Start Minikube**, sized for 9 services + datastores:
+
+```bash
+minikube start --cpus=4 --memory=7168 --driver=docker
+```
+
+**2. Build and deploy** — the script builds every backend + frontend Docker image, loads them
+into Minikube's image store, applies the `infra/k8s/overlays/dev` Kustomize overlay, and waits
+for all Deployments to become available:
+
+```bash
+./infra/k8s/scripts/deploy-to-minikube.sh
+```
+
+**3. Watch the rollout:**
+
+```bash
+kubectl -n healthcare-platform get pods -w
+```
+
+A few `CrashLoopBackOff` restarts on cold start are expected — services retry until Postgres/
+Kafka/MinIO are ready (see "Startup order note" in `infra/k8s/README.md`).
+
+**4. Open the frontend:**
+
+```bash
+minikube service frontend -n healthcare-platform --url
+```
+
+**5. Redeploy after a code change** — rebuild and reload just the changed service, then
+restart its Deployment:
+
+```bash
+docker build -t healthcare-platform/<service>:latest -f backend/<service>/Dockerfile backend
+minikube image load healthcare-platform/<service>:latest
+kubectl -n healthcare-platform rollout restart deployment/<service>
+```
+
+**6. Tear down:**
+
+```bash
+kubectl delete -k infra/k8s/overlays/dev
+minikube stop   # or `minikube delete` to remove the VM entirely
+```
+
+See `infra/k8s/README.md` for the full manifest layout, the dev-overlay deviations from
+`base/` (Kafka PLAINTEXT, Quartz in-memory job store, resource sizing), and troubleshooting.
+
+---
+
 # Development Endpoints
 
 | Component            | URL                      |
