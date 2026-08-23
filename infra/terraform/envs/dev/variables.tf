@@ -11,9 +11,16 @@ variable "environment" {
 }
 
 variable "location" {
-  description = "Azure region for all resources."
+  description = <<-EOT
+    Azure region for all resources. Defaults to centralus, not eastus: this subscription's
+    Postgres Flexible Server provisioning is blocked entirely in eastus/eastus2/westus2/
+    westeurope/southcentralus ("Subscriptions are restricted from provisioning in this
+    region" — a Free Trial restriction), but open in centralus/westus3/northeurope/uksouth.
+    The 4 vCPU compute quota cap (see aks.tf) is subscription-wide and identical in every
+    region, so region choice doesn't affect that constraint.
+  EOT
   type        = string
-  default     = "eastus"
+  default     = "centralus"
 }
 
 variable "admin_ip_cidrs" {
@@ -39,6 +46,16 @@ variable "tags" {
 
 # ---------------------------------------------------------------------------
 # AKS
+#
+# Sized for a subscription hard-capped at 4 "Total Regional vCPUs" (default quota on a Free
+# Trial subscription, ineligible for a quota increase until upgraded to Pay-As-You-Go — see
+# README.md). 2 nodes x Standard_B2s = exactly 4 vCPUs, so there's no quota left for a second
+# node pool: aks_app_node_min_count defaults to 0, which skips creating the "apps" pool
+# entirely (see aks.tf) and lets app pods land on the system pool instead via
+# only_critical_addons_enabled being conditional on it. Once quota is raised, bump
+# aks_system_node_vm_size/aks_app_node_min_count back up to real sizes (e.g. Standard_D2s_v5
+# x3 system, Standard_D4s_v5 x2-6 app) for anything beyond a proof-of-concept — 4 vCPUs isn't
+# enough headroom to actually schedule all 10 app pods at once.
 # ---------------------------------------------------------------------------
 
 variable "kubernetes_version" {
@@ -49,12 +66,12 @@ variable "kubernetes_version" {
 
 variable "aks_system_node_vm_size" {
   type    = string
-  default = "Standard_D2s_v5"
+  default = "Standard_B2s"
 }
 
 variable "aks_system_node_count" {
   type    = number
-  default = 3
+  default = 2
 }
 
 variable "aks_app_node_vm_size" {
@@ -64,8 +81,9 @@ variable "aks_app_node_vm_size" {
 }
 
 variable "aks_app_node_min_count" {
-  type    = number
-  default = 2
+  description = "0 skips creating the \"apps\" node pool entirely (see aks.tf) — that's the current default given the 4 vCPU quota cap."
+  type        = number
+  default     = 0
 }
 
 variable "aks_app_node_max_count" {

@@ -16,11 +16,15 @@ resource "azurerm_kubernetes_cluster" "main" {
   }
 
   default_node_pool {
-    name                         = "system"
-    vm_size                      = var.aks_system_node_vm_size
-    node_count                   = var.aks_system_node_count
-    vnet_subnet_id               = azurerm_subnet.aks.id
-    only_critical_addons_enabled = true # keeps app workloads off the system pool; they land on "apps" below
+    name           = "system"
+    vm_size        = var.aks_system_node_vm_size
+    node_count     = var.aks_system_node_count
+    vnet_subnet_id = azurerm_subnet.aks.id
+    # true keeps app workloads off the system pool so they land on "apps" instead — but that
+    # pool only exists when aks_app_node_min_count > 0 (see variables.tf; it's 0 by default
+    # under the 4 vCPU POC quota cap), so fall back to false and let app pods share the system
+    # pool when there's no separate pool for them to land on.
+    only_critical_addons_enabled = var.aks_app_node_min_count > 0
     upgrade_settings {
       max_surge = "10%"
     }
@@ -61,6 +65,8 @@ resource "azurerm_kubernetes_cluster" "main" {
 }
 
 resource "azurerm_kubernetes_cluster_node_pool" "apps" {
+  count = var.aks_app_node_min_count > 0 ? 1 : 0
+
   name                  = "apps"
   kubernetes_cluster_id = azurerm_kubernetes_cluster.main.id
   vm_size               = var.aks_app_node_vm_size

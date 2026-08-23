@@ -31,13 +31,10 @@ resource "azurerm_postgresql_flexible_server" "main" {
   backup_retention_days        = var.postgres_backup_retention_days
   geo_redundant_backup_enabled = var.postgres_geo_redundant_backup
 
-  zone = "1"
-
+  # No explicit zone: let Azure place it. Pinning a zone risks a capacity error on a
+  # constrained/trial subscription for no POC-stage benefit; revisit for real HA planning
+  # once this is past proof-of-concept.
   tags = local.tags
-
-  lifecycle {
-    ignore_changes = [zone] # Azure may rebalance the AZ; not worth a forced replace over
-  }
 }
 
 resource "azurerm_postgresql_flexible_server_firewall_rule" "aks_egress" {

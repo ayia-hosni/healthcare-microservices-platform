@@ -42,8 +42,9 @@ resource "azurerm_public_ip" "nat_gateway" {
   resource_group_name = azurerm_resource_group.main.name
   allocation_method   = "Static"
   sku                 = "Standard"
-  zones               = ["1"]
-  tags                = local.tags
+  # No explicit zone: avoids a capacity error on a constrained/trial subscription for no
+  # POC-stage benefit.
+  tags = local.tags
 }
 
 resource "azurerm_nat_gateway" "main" {
@@ -52,7 +53,6 @@ resource "azurerm_nat_gateway" "main" {
   resource_group_name     = azurerm_resource_group.main.name
   sku_name                = "Standard"
   idle_timeout_in_minutes = 10
-  zones                   = ["1"]
   tags                    = local.tags
 }
 
