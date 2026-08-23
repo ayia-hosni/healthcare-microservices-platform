@@ -7,7 +7,7 @@
 terraform {
   backend "azurerm" {
     resource_group_name  = "rg-healthcare-platform-tfstate"
-    storage_account_name = "CHANGEME" # must match bootstrap output; globally-unique name
+    storage_account_name = "sthealthplatformtfstate"
     container_name       = "tfstate"
     key                  = "healthcare-platform/dev.tfstate"
   }
