@@ -884,7 +884,7 @@ Minikube Cluster
 
 See:
 
-* [`infra/argocd/README.md`](../../argocd/README.md)
+* [`infra/argocd/README.md`](../argocd/README.md)
 * [ADR-0005 — GitOps with Argo CD](../../docs/adr/0005-gitops-with-argocd.md)
 
 Argo CD replaces the manual manifest reconciliation loop:
@@ -931,7 +931,7 @@ Load into Minikube
 GitOps reconciles manifests
 ```
 
-See [`GITOPS.md`](../../GITOPS.md) for the full GitOps architecture and operational model.
+See [`docs/infrastructure/gitops.md`](../../docs/infrastructure/gitops.md) for the full GitOps architecture and operational model.
 
 ---
 
@@ -1133,9 +1133,9 @@ The current implementation already establishes the key boundaries needed for tha
 
 ## 📚 Related Documentation
 
-* [`../../ARCHITECTURE.md`](../../ARCHITECTURE.md) — platform architecture and service communication
-* [`../../GITOPS.md`](../../GITOPS.md) — Argo CD and GitOps deployment model
-* [`../../OPERATIONS.md`](../../OPERATIONS.md) — deployment and operational workflows
+* [`docs/architecture/README.md`](../../docs/architecture/README.md) — platform architecture and service communication
+* [`docs/infrastructure/gitops.md`](../../docs/infrastructure/gitops.md) — Argo CD and GitOps deployment model
+* [`docs/operations/README.md`](../../docs/operations/README.md) — deployment and operational workflows
 * [ADR-0001 — API Gateway and Ingress](../../docs/adr/0001-api-gateway-ingress.md)
 * [ADR-0005 — GitOps with Argo CD](../../docs/adr/0005-gitops-with-argocd.md)
-* [`../terraform/envs/dev/`](../../terraform/envs/dev/) — Azure infrastructure provisioning
+* [`../terraform/envs/dev/`](../terraform/envs/dev/) — Azure infrastructure provisioning

@@ -1,0 +1,184 @@
+<mxfile host="app.diagrams.net" modified="2026-08-24T00:00:00.000Z" agent="claude-code" version="24.0.0" type="device">
+  <diagram id="healthcare-platform-arch" name="System Architecture">
+    <mxGraphModel dx="1400" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1650" pageHeight="1150" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="Healthcare Platform — System Architecture" style="text;html=1;fontSize=20;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="40" y="10" width="1570" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="Derived from docker-compose.yml, infra/k8s/base/ingress.yaml and ADR-0001/0002 (corrects earlier diagrams that assumed a Kong gateway and a shared Kafka-&gt;RabbitMQ bus)" style="text;html=1;fontSize=11;fontColor=#666666;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="40" y="38" width="1570" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- Frontend -->
+        <mxCell id="fe" value="Angular Frontend (SPA)&#10;static assets, served from browser" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="530" y="80" width="240" height="55" as="geometry" />
+        </mxCell>
+
+        <!-- Ingress -->
+        <mxCell id="ing" value="Ingress (nginx)&#10;&quot;platform-gateway&quot; — single external entry point" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="500" y="185" width="300" height="55" as="geometry" />
+        </mxCell>
+
+        <!-- Service group background -->
+        <mxCell id="grp" value="Backend Microservices (Spring Boot, Kubernetes)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#666666;dashed=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontSize=12;fontStyle=1;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="40" y="290" width="1160" height="290" as="geometry" />
+        </mxCell>
+
+        <!-- Row 1 -->
+        <mxCell id="svc-identity" value="identity-service&#10;:8081" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="70" y="330" width="180" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="svc-patient" value="patient-service&#10;:8082" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="280" y="330" width="180" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="svc-doctor" value="doctor-service&#10;:8083" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="490" y="330" width="180" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="svc-appointment" value="appointment-service&#10;:8084" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="700" y="330" width="180" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="svc-emr" value="emr-service&#10;:8085" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="910" y="330" width="180" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Row 2 -->
+        <mxCell id="svc-billing" value="billing-service&#10;:8086" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="70" y="470" width="180" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="svc-notification" value="notification-service&#10;:8087" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="280" y="470" width="180" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="svc-audit" value="audit-service&#10;:8088" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="490" y="470" width="180" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="svc-analytics" value="analytics-service&#10;:8089" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="700" y="470" width="180" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="svc-graphql" value="graphql-gateway (BFF)&#10;:8090 — aggregates patient/doctor/&#10;appointment/billing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="910" y="470" width="180" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Kafka -->
+        <mxCell id="kafka" value="Kafka&#10;cross-service event backbone (transactional outbox)&#10;topics: patient/doctor/appointment/emr.events,&#10;notification.requests, billing.events" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1240" y="290" width="260" height="110" as="geometry" />
+        </mxCell>
+
+        <!-- RabbitMQ -->
+        <mxCell id="rabbitmq" value="RabbitMQ&#10;internal to notification-service ONLY&#10;(task/retry/DLQ queue, not a cross-service bus)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1240" y="460" width="260" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Postgres -->
+        <mxCell id="postgres" value="PostgreSQL&#10;9 databases, one per service&#10;(identity, patient, doctor, appointment, emr,&#10;billing, notification, audit, analytics)&#10;graphql-gateway has no database of its own" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;fontSize=11;boundedLbl=1;" vertex="1" parent="1">
+          <mxGeometry x="140" y="650" width="320" height="110" as="geometry" />
+        </mxCell>
+
+        <!-- Redis -->
+        <mxCell id="redis" value="Redis&#10;distributed cache&#10;(common RedisCacheConfig)" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;boundedLbl=1;" vertex="1" parent="1">
+          <mxGeometry x="540" y="650" width="240" height="110" as="geometry" />
+        </mxCell>
+
+        <!-- identity note -->
+        <mxCell id="note-identity" value="no Kafka / RabbitMQ —&#10;identity-service has no domain events" style="text;html=1;fontSize=10;fontColor=#999999;fontStyle=2;align=center;" vertex="1" parent="1">
+          <mxGeometry x="60" y="392" width="220" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Edges: Frontend <-> Ingress -->
+        <mxCell id="e-fe-ing1" value="/ (static assets)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;exitX=0.3;exitY=1;entryX=0.3;entryY=0;" edge="1" parent="1" source="ing" target="fe">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-fe-ing2" value="XHR: /api/v1/*, /graphql" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;exitX=0.7;exitY=1;entryX=0.7;entryY=0;" edge="1" parent="1" source="fe" target="ing">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Edges: Ingress -> services -->
+        <mxCell id="e-ing-identity" value="/api/v1/auth" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" edge="1" parent="1" source="ing" target="svc-identity">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-ing-patient" value="/api/v1/patients" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" edge="1" parent="1" source="ing" target="svc-patient">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-ing-doctor" value="/api/v1/doctors" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" edge="1" parent="1" source="ing" target="svc-doctor">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-ing-appointment" value="/api/v1/appointments" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" edge="1" parent="1" source="ing" target="svc-appointment">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-ing-billing" value="/api/v1/invoices, /billing" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" edge="1" parent="1" source="ing" target="svc-billing">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-ing-graphql" value="/graphql, /graphiql" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" edge="1" parent="1" source="ing" target="svc-graphql">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- graphql-gateway BFF aggregation (dashed, unconsumed by UI today) -->
+        <mxCell id="e-gql-patient" value="BFF aggregation" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;fontSize=9;fontColor=#999999;strokeColor=#d6b656;" edge="1" parent="1" source="svc-graphql" target="svc-patient">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-gql-doctor" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;fontSize=9;strokeColor=#d6b656;" edge="1" parent="1" source="svc-graphql" target="svc-doctor">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-gql-appointment" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;fontSize=9;strokeColor=#d6b656;" edge="1" parent="1" source="svc-graphql" target="svc-appointment">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-gql-billing" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;fontSize=9;strokeColor=#d6b656;" edge="1" parent="1" source="svc-graphql" target="svc-billing">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Kafka producers -->
+        <mxCell id="e-patient-kafka" value="patient.events" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;strokeColor=#d79b00;exitX=1;exitY=0.3;entryX=0;entryY=0.15;" edge="1" parent="1" source="svc-patient" target="kafka">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-doctor-kafka" value="doctor.events" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;strokeColor=#d79b00;exitX=1;exitY=0.5;entryX=0;entryY=0.3;" edge="1" parent="1" source="svc-doctor" target="kafka">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-appointment-kafka" value="appointment.events,&#10;notification.requests" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;strokeColor=#d79b00;exitX=1;exitY=0.7;entryX=0;entryY=0.5;" edge="1" parent="1" source="svc-appointment" target="kafka">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-emr-kafka" value="emr.events,&#10;notification.requests" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;strokeColor=#d79b00;exitX=1;exitY=0.9;entryX=0;entryY=0.7;" edge="1" parent="1" source="svc-emr" target="kafka">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Kafka <-> billing (consumer + producer) -->
+        <mxCell id="e-kafka-billing" value="appointment.events" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;strokeColor=#d79b00;" edge="1" parent="1" source="kafka" target="svc-billing">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-billing-kafka" value="billing.events" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;strokeColor=#d79b00;" edge="1" parent="1" source="svc-billing" target="kafka">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Kafka -> audit / analytics / notification -->
+        <mxCell id="e-kafka-audit" value="5 domain-event topics&#10;(audit trail)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;strokeColor=#d79b00;" edge="1" parent="1" source="kafka" target="svc-audit">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-kafka-analytics" value="5 domain-event topics&#10;(aggregates)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;strokeColor=#d79b00;" edge="1" parent="1" source="kafka" target="svc-analytics">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-kafka-notification" value="notification.requests" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;strokeColor=#d79b00;" edge="1" parent="1" source="kafka" target="svc-notification">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- notification <-> rabbitmq -->
+        <mxCell id="e-notification-rabbitmq" value="internal publish&#10;(retry/DLQ)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;strokeColor=#b85450;" edge="1" parent="1" source="svc-notification" target="rabbitmq">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-rabbitmq-notification" value="@RabbitListener →&#10;email / SMS / push" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;strokeColor=#b85450;" edge="1" parent="1" source="rabbitmq" target="svc-notification">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Data layer -->
+        <mxCell id="e-grp-postgres" value="JDBC" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;strokeColor=#0e8088;exitX=0.3;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="grp" target="postgres">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-grp-redis" value="cache" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;strokeColor=#b85450;exitX=0.55;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="grp" target="redis">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

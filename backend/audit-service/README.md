@@ -464,7 +464,7 @@ under some edge case) is worse for what this service is for.
 
 The same at-least-once root cause shows up differently in analytics-service — a redelivered
 event there inflates a counter instead of duplicating a row. See
-[`../../SUPPORTING_SERVICES.md`](../../SUPPORTING_SERVICES.md) for the comparison across all
+[`../../docs/architecture/supporting-services.md`](../../docs/architecture/supporting-services.md) for the comparison across all
 three Kafka-consuming supporting services.
 
 ---

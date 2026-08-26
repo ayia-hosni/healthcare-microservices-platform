@@ -1,134 +1,148 @@
-# 🏥 Healthcare Microservices Platform
+# 🏥 Healthcare Platform
 
-> A cloud-native, event-driven healthcare platform built with Java and Spring Boot to explore microservices architecture, distributed systems, reliability patterns, API design, and Kubernetes operations.
+> A cloud-native healthcare platform built with **Java 21, Spring Boot, Angular, Kubernetes, Kafka-compatible event streaming, RabbitMQ, PostgreSQL, Redis, Terraform, and cloud-native observability**.
 
-![Java](https://img.shields.io/badge/Java-21-orange?logo=openjdk)
-![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3-6DB33F?logo=springboot)
-![Angular](https://img.shields.io/badge/Angular-Frontend-DD0031?logo=angular)
-![Kafka](https://img.shields.io/badge/Apache%20Kafka-Event--Driven-black?logo=apachekafka)
-![Kubernetes](https://img.shields.io/badge/Kubernetes-Cloud--Native-326CE5?logo=kubernetes)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-4169E1?logo=postgresql)
-![Docker](https://img.shields.io/badge/Docker-Containerized-2496ED?logo=docker)
+## Overview
 
----
+This project is a portfolio-scale implementation of a distributed healthcare platform designed to explore modern backend and cloud-native engineering practices.
 
-## 📌 Overview
+The platform is built around independently deployable services, asynchronous communication, database-per-service boundaries, container orchestration, infrastructure as code, and observable operations.
 
-This project is a distributed healthcare platform composed of **nine independently deployable Spring Boot domain services** plus a **GraphQL BFF** (`graphql-gateway`) — ten Spring Boot applications in total, all built on **Java 21 / Spring Boot 3.3**, fronted by an **Angular SPA**.
+It is designed to demonstrate practical experience with:
 
-The architecture explores how a production-oriented system can handle:
+* Java and Spring Boot microservices
+* distributed system design
+* event-driven architecture
+* REST, GraphQL, and gRPC communication
+* PostgreSQL and database-per-service architecture
+* Redis caching
+* Kafka-compatible event streaming
+* RabbitMQ work queues and retry handling
+* Docker and Kubernetes
+* Azure and AWS cloud architecture
+* Terraform infrastructure as code
+* GitOps and Argo CD
+* Prometheus, Grafana, logging, and distributed tracing
 
-- Domain-oriented microservices
-- Service-to-service communication (REST, gRPC, GraphQL)
-- Synchronous and asynchronous workflows
-- Event-driven architecture with a transactional outbox
-- Database-per-service boundaries
-- Distributed concurrency and idempotency
-- Reliable messaging (retry / DLQ)
-- Rate limiting and circuit breaking on cross-boundary calls
-- Containerization and Kubernetes deployment
-- Observability (metrics, tracing, health)
+## For Recruiters & Hiring Managers
 
----
+### Engineering Focus
 
-## 📚 Documentation
+| Area            | Technologies                             |
+| --------------- | ---------------------------------------- |
+| Backend         | Java 21, Spring Boot                     |
+| Frontend        | Angular                                  |
+| Architecture    | Microservices, Event-Driven Architecture |
+| APIs            | REST, GraphQL, gRPC                      |
+| Database        | PostgreSQL                               |
+| Cache           | Redis                                    |
+| Event Streaming | Kafka / Azure Event Hubs                 |
+| Messaging       | RabbitMQ                                 |
+| Containers      | Docker                                   |
+| Orchestration   | Kubernetes                               |
+| Cloud           | Azure, AWS                               |
+| Infrastructure  | Terraform                                |
+| GitOps          | Argo CD                                  |
+| Metrics         | Prometheus                               |
+| Dashboards      | Grafana                                  |
+| Tracing         | Zipkin                                   |
+| Search          | Elasticsearch                            |
 
-This README is the front door. Everything else lives in a topic-focused sibling doc:
+### What This Project Demonstrates
 
-| Doc | Covers |
-| --- | --- |
-| [`GETTING_STARTED.md`](GETTING_STARTED.md) | Three ways to run it locally, easy → hard: Docker Compose, Minikube, or a hybrid dev loop |
-| [`ARCHITECTURE.md`](ARCHITECTURE.md) | System design — services, communication model, the appointment booking workflow, database-per-service, event-driven architecture |
-| [`RELIABILITY.md`](RELIABILITY.md) | Transactional outbox, rate limiting & circuit breakers, notification retry/DLQ, auth, storage tech choices, scheduling |
-| [`SUPPORTING_SERVICES.md`](SUPPORTING_SERVICES.md) | notification/audit/analytics-service's shared Kafka-consumer pattern, and where each one's at-least-once delivery shows up as a real gap |
-| [`OPERATIONS.md`](OPERATIONS.md) | Observability, Docker Compose, Kubernetes/Kustomize, Helm, endpoint reference, CI/CD |
-| [`GITOPS.md`](GITOPS.md) | ArgoCD-driven deployment — how the reconcile loop works, and its known limitations |
-| [`PROGRESS.md`](PROGRESS.md) | What's implemented vs. designed vs. planned, maturity breakdown, production roadmap |
-| [`AZURE_ARCHITECTURE.md`](AZURE_ARCHITECTURE.md) | The platform's real, provisioned Azure cloud deployment |
-| [`AWS_ARCHITECTURE.md`](AWS_ARCHITECTURE.md) | A designed-but-not-built AWS equivalent |
-| [`docs/adr/`](docs/adr/) | Architecture Decision Records |
-| [`docs/architecture/`](docs/architecture/00-index.md) | Deep-dive C4-style diagrams per concern |
+* Designing services around business domains.
+* Applying database-per-service architecture.
+* Using events for asynchronous service communication.
+* Running containerized workloads on Kubernetes.
+* Managing infrastructure with Terraform.
+* Separating work queues from event streaming.
+* Implementing cloud-native identity and secret management.
+* Designing observable distributed systems.
+* Supporting local development and cloud deployment paths.
 
----
-
-## 🔌 Services
-
-| Service                | Port | Responsibility                                                        |
-| ----------------------- | ---: | --------------------------------------------------------------------- |
-| `identity-service`     | 8081 | Registration, authentication, JWT issuance, refresh, logout, and RBAC |
-| `patient-service`      | 8082 | Patient demographics, insurance, and medical history                  |
-| `doctor-service`       | 8083 | Doctor profiles, departments, specialties, and availability           |
-| `appointment-service`  | 8084 | Appointment booking, cancellation, rescheduling, and waiting lists    |
-| `emr-service`          | 8085 | Encounters, diagnoses, medications, laboratory results, and allergies |
-| `billing-service`      | 8086 | Invoices, payments, and payer eligibility checks                      |
-| `notification-service` | 8087 | Asynchronous email, SMS, and push notification processing             |
-| `audit-service`        | 8088 | Platform-wide append-only domain event auditing                       |
-| `analytics-service`    | 8089 | Event-driven analytics and scheduled reporting                        |
-| `graphql-gateway`      | 8090 | GraphQL BFF aggregating patient/doctor gRPC lookups and appointment/billing REST APIs behind one schema |
-
----
-
-## 🚀 Quickstart
-
-```bash
-./infra/docker/kafka/generate-dev-certs.sh
-docker compose up --build -d
-docker compose ps
-```
-
-That's the fastest path. For two other ways to run it locally — Kubernetes via Minikube, or a
-hybrid dev loop for hacking on one service with hot reload — see
-[`GETTING_STARTED.md`](GETTING_STARTED.md). For the full endpoint list, Helm chart, and CI/CD,
-see [`OPERATIONS.md`](OPERATIONS.md).
-
----
-
-## 📁 Project Structure
+## Architecture at a Glance
 
 ```text
-.
-├── backend/
-│   ├── grpc-contracts/
-│   ├── common/
-│   ├── identity-service/
-│   ├── patient-service/
-│   ├── doctor-service/
-│   ├── appointment-service/
-│   ├── emr-service/
-│   ├── billing-service/
-│   ├── notification-service/
-│   ├── audit-service/
-│   ├── analytics-service/
-│   └── graphql-gateway/
-│
-├── frontend/                    # Angular SPA
-│
-├── infra/
-│   ├── docker/
-│   ├── k8s/
-│   ├── helm/
-│   ├── terraform/
-│   ├── native/                  # run.sh / stop.sh — no Docker, no Kubernetes
-│   └── argocd/                  # AppProject + Application — see GITOPS.md
-│
-├── docs/
-│   ├── adr/
-│   └── architecture/
-│
-├── .github/workflows/
-├── docker-compose.yml
-├── README.md
-├── GETTING_STARTED.md
-├── ARCHITECTURE.md
-├── RELIABILITY.md
-├── OPERATIONS.md
-├── GITOPS.md
-├── SUPPORTING_SERVICES.md
-├── PROGRESS.md
-├── AZURE_ARCHITECTURE.md
-└── AWS_ARCHITECTURE.md
+Client
+   │
+   ▼
+Frontend
+   │
+   ▼
+API Gateway / GraphQL
+   │
+   ▼
+Kubernetes
+   │
+   ├── Identity Service
+   ├── Patient Service
+   ├── Doctor Service
+   ├── Appointment Service
+   ├── EMR Service
+   ├── Billing Service
+   ├── Notification Service
+   ├── Audit Service
+   └── Analytics Service
+          │
+          ├── PostgreSQL
+          ├── Redis
+          ├── Event Streaming
+          ├── RabbitMQ
+          ├── Elasticsearch
+          └── Object Storage
 ```
+
+## Documentation
+
+Start with the documentation index:
+
+➡️ **[Documentation Index](INDEX.md)**
+
+### Recommended Paths
+
+#### 👔 Recruiters & Hiring Managers
+
+1. [Project Overview](README.md)
+2. [Architecture Overview](docs/architecture/README.md)
+3. [Technology Stack](docs/architecture/README.md#technology-stack)
+4. [Cloud Architecture](docs/cloud/README.md)
+5. [Project Progress](PROGRESS.md)
+
+#### 👨‍💻 Backend Developers
+
+1. [Application Architecture](docs/architecture/application-architecture.md)
+2. [Microservices](docs/architecture/microservices.md)
+3. [Service Communication](docs/architecture/communication.md)
+4. [Data Architecture](docs/architecture/data-architecture.md)
+5. [Local Development](docs/development/local-development.md)
+
+#### ☁️ DevOps / Cloud Engineers
+
+1. [Cloud Architecture](docs/cloud/README.md)
+2. [Kubernetes](docs/infrastructure/kubernetes.md)
+3. [Terraform](docs/infrastructure/terraform.md)
+4. [GitOps](docs/infrastructure/gitops.md)
+5. [Observability](docs/operations/observability.md)
+
+## Quick Start
+
+See:
+
+➡️ [Local Development Guide](docs/development/local-development.md)
+
+## Cloud Architecture
+
+The project includes cloud architecture documentation for:
+
+* [Azure](docs/cloud/azure/README.md)
+* [AWS](docs/cloud/aws/README.md)
+
+## Project Status
+
+See:
+
+➡️ [PROGRESS.md](PROGRESS.md)
 
 ---
 
-> **A practical cloud-native healthcare platform exploring how independently deployable services communicate, own data, handle concurrency, process events reliably via an outbox, guard against overload with rate limiting and circuit breakers, and evolve toward production-grade distributed systems architecture.**
+For the complete documentation map, start at ➡️ [INDEX.md](INDEX.md).

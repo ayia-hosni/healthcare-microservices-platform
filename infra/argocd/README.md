@@ -27,7 +27,7 @@ For the architectural reasoning, see
 [ADR-0005](../../docs/adr/0005-gitops-with-argocd.md).
 
 For the complete GitOps architecture, reconciliation model, image delivery flow, and diagrams,
-see [`../../GITOPS.md`](../../GITOPS.md).
+see [`docs/infrastructure/gitops.md`](../../docs/infrastructure/gitops.md).
 
 ---
 
@@ -853,11 +853,11 @@ Argo CD cannot build or load the missing image for you.
 
 # 📚 Related Documentation
 
-- [`../../GITOPS.md`](../../GITOPS.md) — complete GitOps architecture and reconciliation flow
+- [`docs/infrastructure/gitops.md`](../../docs/infrastructure/gitops.md) — complete GitOps architecture and reconciliation flow
 - [`../k8s/README.md`](../k8s/README.md) — Kubernetes environment architecture
 - [ADR-0005 — GitOps with Argo CD](../../docs/adr/0005-gitops-with-argocd.md)
 - [Deployment Architecture](../../docs/architecture/08-deployment-architecture.md)
-- [`../../OPERATIONS.md`](../../OPERATIONS.md) — operational workflows and CI/CD
+- [`docs/operations/README.md`](../../docs/operations/README.md) — operational workflows and CI/CD
 - [`../../PROGRESS.md`](../../PROGRESS.md) — platform implementation progress
 
 ---

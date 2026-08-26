@@ -314,7 +314,7 @@ and has **no repository at all**, let alone a service or controller. It's not re
 any code path in this service. Same pattern as `doctor-service`'s `AvailabilitySlot`,
 `appointment-service`'s `WaitingListEntry`, and `emr-service`'s `Allergy`/`PatientServiceClient`
 — a data model built ahead of the feature that would use it. See
-[`../../SUPPORTING_SERVICES.md`](../../SUPPORTING_SERVICES.md) and each of those services' own
+[`../../docs/architecture/supporting-services.md`](../../docs/architecture/supporting-services.md) and each of those services' own
 READMEs for the platform-wide pattern.
 
 ---
@@ -330,6 +330,6 @@ direct "finish what's already modeled" items here.
 
 ---
 
-See [`../../RELIABILITY.md`](../../RELIABILITY.md) for how the circuit breaker and outbox work
-across the platform, and [`../../ARCHITECTURE.md`](../../ARCHITECTURE.md) for the full
+See [`../../docs/reliability/README.md`](../../docs/reliability/README.md) for how the circuit breaker and outbox work
+across the platform, and [`../../docs/architecture/README.md`](../../docs/architecture/README.md) for the full
 choreographed saga this service participates in.

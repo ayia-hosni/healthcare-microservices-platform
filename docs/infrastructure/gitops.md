@@ -1,16 +1,18 @@
 # 🔄 GitOps Deployment
 
+> Part of [Infrastructure](README.md).
+
 > **Git is the source of truth. Argo CD continuously reconciles the Kubernetes cluster to match it.**
 
 This platform uses a GitOps deployment model for Kubernetes environments. Instead of relying on someone manually running `kubectl apply -k` from their laptop, the desired cluster state is stored in Git and continuously reconciled by Argo CD.
 
 **Status: Implemented**
 
-The Argo CD manifests in [`infra/argocd/`](infra/argocd/) are part of the working platform, not a future architecture proposal.
+The Argo CD manifests in [`infra/argocd/`](../../infra/argocd/) are part of the working platform, not a future architecture proposal.
 
-* **Architecture decision:** [ADR-0005 — GitOps with Argo CD](docs/adr/0005-gitops-with-argocd.md)
-* **Quick operational reference:** [`infra/argocd/README.md`](infra/argocd/README.md)
-* **Platform operations:** [`OPERATIONS.md`](OPERATIONS.md)
+* **Architecture decision:** [ADR-0005 — GitOps with Argo CD](../adr/0005-gitops-with-argocd.md)
+* **Quick operational reference:** [`infra/argocd/README.md`](../../infra/argocd/README.md)
+* **Platform operations:** [`../operations/README.md`](../operations/README.md)
 
 This document explains the architecture, reconciliation model, bootstrap process, and current limitations.
 
@@ -844,11 +846,11 @@ Potential next steps include:
 
 # 📚 Related Documentation
 
-* [`infra/argocd/README.md`](infra/argocd/README.md) — quick Argo CD commands and local usage
-* [`docs/adr/0005-gitops-with-argocd.md`](docs/adr/0005-gitops-with-argocd.md) — GitOps architecture decision
-* [`docs/adr/0001-api-gateway-ingress.md`](docs/adr/0001-api-gateway-ingress.md) — ingress ownership and architecture
-* [`OPERATIONS.md`](OPERATIONS.md) — build, test, deployment, and operational workflows
-* [`PROGRESS.md`](PROGRESS.md) — current platform implementation progress
+* [`infra/argocd/README.md`](../../infra/argocd/README.md) — quick Argo CD commands and local usage
+* [`docs/adr/0005-gitops-with-argocd.md`](../adr/0005-gitops-with-argocd.md) — GitOps architecture decision
+* [`docs/adr/0001-api-gateway-ingress.md`](../adr/0001-api-gateway-ingress.md) — ingress ownership and architecture
+* [`../operations/README.md`](../operations/README.md) — build, test, deployment, and operational workflows
+* [`../../PROGRESS.md`](../../PROGRESS.md) — current platform implementation progress
 
 ---
 

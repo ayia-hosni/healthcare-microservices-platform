@@ -227,7 +227,7 @@ idempotency key stopping the duplicate. The database write is a receipt, not a l
 doesn't have a role in *preventing* the resend, only recording that a send was attempted.
 
 This is the same at-least-once root cause the other two Supporting Services hit — see
-[`../../SUPPORTING_SERVICES.md`](../../SUPPORTING_SERVICES.md) for the platform-wide
+[`../../docs/architecture/supporting-services.md`](../../docs/architecture/supporting-services.md) for the platform-wide
 comparison (`audit-service` gets a duplicate row, `analytics-service` gets an inflated counter,
 this service gets a duplicate send).
 
@@ -244,6 +244,6 @@ without touching the retry/DLQ plumbing around them.
 
 ---
 
-See [`../../RELIABILITY.md`](../../RELIABILITY.md) for the full retry/DLQ flow, and
-[`../../SUPPORTING_SERVICES.md`](../../SUPPORTING_SERVICES.md) for how this service compares
+See [`../../docs/reliability/README.md`](../../docs/reliability/README.md) for the full retry/DLQ flow, and
+[`../../docs/architecture/supporting-services.md`](../../docs/architecture/supporting-services.md) for how this service compares
 to `audit-service` and `analytics-service`.

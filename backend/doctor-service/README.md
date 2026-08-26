@@ -262,4 +262,4 @@ by caller identity.
 
 ---
 
-See [`../../ARCHITECTURE.md`](../../ARCHITECTURE.md) for the platform-wide communication model.
+See [`../../docs/architecture/README.md`](../../docs/architecture/README.md) for the platform-wide communication model.

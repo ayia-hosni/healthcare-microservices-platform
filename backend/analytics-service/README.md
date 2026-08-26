@@ -568,7 +568,7 @@ This trade-off keeps the consumer simple and the aggregation path efficient.
 
 The same underlying at-least-once delivery characteristic can affect other event-consuming supporting services differently. For example, a consumer that persists every received event may produce duplicate records rather than an inflated aggregate.
 
-For the comparison across Kafka-consuming supporting services, see [`../../SUPPORTING_SERVICES.md`](../../SUPPORTING_SERVICES.md).
+For the comparison across Kafka-consuming supporting services, see [`../../docs/architecture/supporting-services.md`](../../docs/architecture/supporting-services.md).
 
 ---
 

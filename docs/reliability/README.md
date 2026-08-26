@@ -3,20 +3,21 @@
 How the platform behaves under failure and load: the transactional outbox, rate limiting and
 circuit breaking, notification retry/DLQ handling, authentication, storage technology choices,
 and job scheduling. For service boundaries and communication, see
-[`ARCHITECTURE.md`](ARCHITECTURE.md). For how to run and deploy it, see
-[`OPERATIONS.md`](OPERATIONS.md). For implementation status, see [`PROGRESS.md`](PROGRESS.md).
+[`../architecture/README.md`](../architecture/README.md). For how to run and deploy it, see
+[`../operations/README.md`](../operations/README.md). For implementation status, see
+[`../../PROGRESS.md`](../../PROGRESS.md).
 
 ---
 
 ## Table of Contents
 
-* [Transactional Outbox Pattern](#-transactional-outbox-pattern)
-* [Reliability: Rate Limiting & Circuit Breakers](#-reliability-rate-limiting--circuit-breakers)
-* [Reliable Notification Processing](#-reliable-notification-processing)
-* [Authentication & Authorization](#-authentication--authorization)
-* [Data & Storage Architecture](#-data--storage-architecture)
-* [Scheduling](#-scheduling)
-* [Core Architecture Principles](#-core-architecture-principles)
+* [Transactional Outbox Pattern](#transactional-outbox-pattern)
+* [Reliability: Rate Limiting & Circuit Breakers](#reliability-rate-limiting--circuit-breakers)
+* [Reliable Notification Processing](#reliable-notification-processing)
+* [Authentication & Authorization](#authentication--authorization)
+* [Data & Storage Architecture](#data--storage-architecture)
+* [Scheduling](#scheduling)
+* [Core Architecture Principles](#core-architecture-principles)
 
 ---
 
@@ -84,7 +85,7 @@ PayerEligibilityClient ──► External payer eligibility service (SOAP, see A
 
 Both are declarative `resilience4j-spring-boot3` annotations (`@RateLimiter`, `@CircuitBreaker`)
 with fallback methods — not manual try/catch. Bulkhead isolation and cross-instance/distributed
-rate limiting are not implemented yet (see [`PROGRESS.md`](PROGRESS.md#production-roadmap)).
+rate limiting are not implemented yet (see [`../../PROGRESS.md`](../../PROGRESS.md#production-roadmap)).
 
 ---
 
@@ -127,7 +128,7 @@ Identity Service ──Access Token──► Business Services ──► JWT Ver
 The architecture intentionally separates **token issuance** from **token verification**. The
 current implementation uses a shared HS256 development secret (`Keys.hmacShaKeyFor`). The
 designed RS256/JWKS evolution and the wider security roadmap are tracked in
-[`PROGRESS.md`](PROGRESS.md#designed-not-yet-built).
+[`../../PROGRESS.md`](../../PROGRESS.md#designed-not-yet-built).
 
 ---
 
@@ -175,4 +176,4 @@ durable job scheduling.
 * Idempotency and a transactional outbox for distributed reliability
 * Observability as a system capability, not an afterthought
 * Security boundaries between public and internal components
-* Honest distinction between implemented and planned capabilities — see [`PROGRESS.md`](PROGRESS.md)
+* Honest distinction between implemented and planned capabilities — see [`../../PROGRESS.md`](../../PROGRESS.md)

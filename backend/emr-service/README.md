@@ -299,7 +299,7 @@ traffic, only with document *metadata* traffic.
 # 🚀 Where This Is Headed
 
 Object storage moves from MinIO to a managed cloud store as the platform's Azure deployment
-matures (see [`../../AZURE_ARCHITECTURE.md`](../../AZURE_ARCHITECTURE.md)) — the document
+matures (see [`../../docs/cloud/azure/data-services.md`](../../docs/cloud/azure/data-services.md)) — the document
 client is moving from the MinIO SDK to the native Azure Blob SDK, converging on the same
 metadata model either way. The two built-but-unwired capabilities above are the natural next
 endpoints to add: an `AllergyController` giving `AllergyRepository` a caller, and a referral
@@ -311,4 +311,4 @@ creation and diagnosis additions the same way it already captures prescriptions.
 
 ---
 
-See [`../../ARCHITECTURE.md`](../../ARCHITECTURE.md) for how this fits into the platform.
+See [`../../docs/architecture/README.md`](../../docs/architecture/README.md) for how this fits into the platform.

@@ -316,7 +316,7 @@ two separate hourly runs — nothing on `Appointment` or in the query marks "rem
 sent" for this window, so that appointment gets a second `NotificationRequestedEvent`, and a
 patient could receive the same reminder twice. This is the appointment-side instance of the
 at-least-once-delivery pattern documented across the platform's Supporting Services — see
-[`../../SUPPORTING_SERVICES.md`](../../SUPPORTING_SERVICES.md) — except here the duplication
+[`../../docs/architecture/supporting-services.md`](../../docs/architecture/supporting-services.md) — except here the duplication
 risk originates in the *producer*, not a Kafka redelivery on the consumer side.
 
 ---
@@ -342,5 +342,5 @@ publishing an `AppointmentRescheduledEvent` the same way `book()`/`cancel()` alr
 
 ---
 
-See [`../../ARCHITECTURE.md`](../../ARCHITECTURE.md) for the full booking workflow diagram, and
-[`../../RELIABILITY.md`](../../RELIABILITY.md) for the outbox and rate-limiting details.
+See [`../../docs/architecture/README.md`](../../docs/architecture/README.md) for the full booking workflow diagram, and
+[`../../docs/reliability/README.md`](../../docs/reliability/README.md) for the outbox and rate-limiting details.

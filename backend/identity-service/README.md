@@ -355,5 +355,5 @@ sits relative to the rest of the platform's security roadmap.
 
 ---
 
-See [`../../ARCHITECTURE.md`](../../ARCHITECTURE.md) for how this fits into the platform, and
-[`../../RELIABILITY.md`](../../RELIABILITY.md) for the wider authentication model.
+See [`../../docs/architecture/README.md`](../../docs/architecture/README.md) for how this fits into the platform, and
+[`../../docs/reliability/README.md`](../../docs/reliability/README.md) for the wider authentication model.

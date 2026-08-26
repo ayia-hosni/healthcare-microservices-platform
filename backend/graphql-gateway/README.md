@@ -282,4 +282,4 @@ list-returning query is ever added to the schema, DataLoader batching on the nes
 
 ---
 
-See [`../../ARCHITECTURE.md`](../../ARCHITECTURE.md) for the full communication model.
+See [`../../docs/architecture/README.md`](../../docs/architecture/README.md) for the full communication model.

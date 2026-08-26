@@ -1,7 +1,9 @@
 # 📡 Supporting Services
 
+> Part of [Architecture](README.md).
+
 `notification-service`, `audit-service`, and `analytics-service` form the platform's
-**Supporting Services** domain (see [`ARCHITECTURE.md`](ARCHITECTURE.md#-service-architecture))
+**Supporting Services** domain (see [Microservices](microservices.md))
 — none of them drive a primary workflow; all three react to what the rest of the platform
 already did. That shared shape means they also share a shared set of failure modes, which is
 what this doc is really about: the Kafka consumer/DLQ pattern all three use, where each one
@@ -9,10 +11,10 @@ diverges from it, and the concrete gaps between what each one's code comments cl
 the code actually does.
 
 Each service still has its own `README.md`
-([`notification-service`](backend/notification-service/README.md) ·
-[`audit-service`](backend/audit-service/README.md) ·
-[`analytics-service`](backend/analytics-service/README.md)) for its own endpoints and package
-layout — this doc is the cross-service view.
+([`notification-service`](../../backend/notification-service/README.md) ·
+[`audit-service`](../../backend/audit-service/README.md) ·
+[`analytics-service`](../../backend/analytics-service/README.md)) for its own endpoints and
+package layout — this doc is the cross-service view.
 
 ---
 
@@ -80,9 +82,9 @@ Kafka
 
 audit-service and analytics-service consume the same five topics; notification-service
 consumes a different one entirely (`notification.requests`, populated by appointment-service's
-reminder job and emr-service — see [`ARCHITECTURE.md`](ARCHITECTURE.md)), and is the only one
-of the three that hands off to a second broker (RabbitMQ) instead of writing straight to its
-own database.
+reminder job and emr-service — see [Service Communication](communication.md)), and is the only
+one of the three that hands off to a second broker (RabbitMQ) instead of writing straight to
+its own database.
 
 ---
 
@@ -213,11 +215,13 @@ that costs differs by service:
 
 None of this is unique to a bad implementation — it's the normal shape of at-least-once
 delivery without an idempotency layer, which is itself a real, named gap on the platform's
-roadmap (see [`PROGRESS.md`](PROGRESS.md#production-roadmap): "Idempotent Kafka consumers /
-Inbox Pattern"). This doc exists so that gap is legible per-service instead of abstract.
+roadmap (see [`../../PROGRESS.md`](../../PROGRESS.md#production-roadmap): "Idempotent Kafka
+consumers / Inbox Pattern"). This doc exists so that gap is legible per-service instead of
+abstract.
 
 ---
 
-See [`RELIABILITY.md`](RELIABILITY.md) for the platform-wide reliability mechanisms (the
-transactional outbox on the *producing* side, rate limiting, circuit breakers), and
-[`ARCHITECTURE.md`](ARCHITECTURE.md) for the full event topology these three sit downstream of.
+See [`../reliability/README.md`](../reliability/README.md) for the platform-wide reliability
+mechanisms (the transactional outbox on the *producing* side, rate limiting, circuit
+breakers), and [Service Communication](communication.md) for the full event topology these
+three sit downstream of.

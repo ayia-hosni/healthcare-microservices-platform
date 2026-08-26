@@ -1,11 +1,11 @@
-# 🚀 Getting Started
+# 🚀 Local Development
 
 The platform supports four local development workflows, ranging from a single-command Docker environment to a fully native setup with no containers.
 
 Choose the workflow based on what you want to do—you only need to follow one.
 
 | Workflow                                     | Setup           | Frontend               | Best for                                                    |
-| -------------------------------------------- | --------------- | ---------------------- | ----------------------------------------------------------- |
+| --------------------------------------------- | --------------- | ----------------------- | ------------------------------------------------------------ |
 | 🟢 **Easy — Full Docker Compose**            | Minimal         | Runs on your host      | Exploring the platform and running the full system quickly  |
 | 🟡 **Medium — Kubernetes via Minikube**      | Moderate        | Runs inside Kubernetes | Testing Kubernetes manifests, Helm, and deployment behavior |
 | 🔴 **Advanced — Hybrid Development Loop**    | Manual          | Runs on your host      | Developing and debugging individual services                |
@@ -14,13 +14,15 @@ Choose the workflow based on what you want to do—you only need to follow one.
 ## Prerequisites
 
 | Workflow         | Required                                        |
-| ---------------- | ----------------------------------------------- |
+| ----------------- | ------------------------------------------------ |
 | **Easy**         | Docker + Docker Compose                         |
 | **Medium**       | Docker, Docker Compose, Minikube, kubectl       |
 | **Advanced**     | Docker, Docker Compose, Java 21, Maven, Node.js |
 | **Fully Native** | macOS, Homebrew, Java 21, Maven, Node.js        |
 
-For a detailed view of the platform architecture and service responsibilities, see [`ARCHITECTURE.md`](ARCHITECTURE.md). For operational details, endpoints, Helm, and CI/CD workflows, see [`OPERATIONS.md`](OPERATIONS.md).
+For a detailed view of the platform architecture and service responsibilities, see
+[`../architecture/README.md`](../architecture/README.md). For operational details, endpoints,
+Helm, and CI/CD workflows, see [`../operations/README.md`](../operations/README.md).
 
 ---
 
@@ -411,7 +413,7 @@ http://localhost:4200
 forwards `/api/v1/{auth,patients,doctors,appointments,invoices,billing}` and
 `/graphql`/`/graphiql` to their owning service — one same-origin endpoint for the whole
 platform, mirroring the routing table the Kubernetes Ingress uses
-(`infra/k8s/base/ingress.yaml`, see [ADR-0001](docs/adr/0001-api-gateway-ingress.md)).
+(`infra/k8s/base/ingress.yaml`, see [ADR-0001](../adr/0001-api-gateway-ingress.md)).
 `emr-service`, `notification-service`, `audit-service`, and `analytics-service` aren't
 proxied — same as the Ingress, they're event-driven/internal services with no UI consumer
 today — reach them directly on their own port (8085/8087/8088/8089) if needed.
@@ -446,10 +448,33 @@ This workflow is useful when containers are unavailable, undesirable, or when yo
 
 ---
 
+## 🌱 Seed Data
+
+Once the platform is up (any workflow above), populate it with fake patients, doctors, and
+appointments:
+
+```bash
+./infra/seed/seed.sh
+```
+
+It creates ~8 doctors, ~20 patients (each a real registered account — email/password login
+works for every one, password `SeedPatient-2026!`), and an appointment per patient, entirely
+through the real APIs — not raw SQL inserts — so passwords are hashed normally, domain events
+fire normally, and the shared patient/identity UUID convention is preserved automatically.
+
+**Not idempotent** — it's meant to run once against a freshly started stack. Running it again
+creates a second batch of patients with different emails rather than upserting.
+
+Override the target URLs via `IDENTITY_SERVICE_URL`/`PATIENT_SERVICE_URL`/`DOCTOR_SERVICE_URL`/
+`APPOINTMENT_SERVICE_URL` env vars if you're not using the default Docker Compose ports (e.g.
+after `kubectl port-forward` on the Minikube tier).
+
+---
+
 ## 🧭 Which workflow should I choose?
 
 | Your goal                                        | Recommended workflow           |
-| ------------------------------------------------ | ------------------------------ |
+| -------------------------------------------------- | --------------------------------- |
 | Get the complete platform running quickly        | 🟢 **Easy — Docker Compose**   |
 | Explore APIs and test end-to-end flows           | 🟢 **Easy — Docker Compose**   |
 | Practice Kubernetes operations                   | 🟡 **Kubernetes via Minikube** |
@@ -461,6 +486,14 @@ This workflow is useful when containers are unavailable, undesirable, or when yo
 
 > **Recommended starting point:** Use Docker Compose to explore the platform, move to the Hybrid Development Loop for active service development, and use Minikube when validating Kubernetes deployment behavior.
 
-For a complete breakdown of service responsibilities and platform communication, see [`ARCHITECTURE.md`](ARCHITECTURE.md).
+For a complete breakdown of service responsibilities and platform communication, see
+[`../architecture/README.md`](../architecture/README.md).
 
-For operational commands, endpoint references, Helm deployment, observability, and CI/CD workflows, see [`OPERATIONS.md`](OPERATIONS.md).
+For operational commands, endpoint references, Helm deployment, observability, and CI/CD
+workflows, see [`../operations/README.md`](../operations/README.md).
+
+## Per-service development
+
+Each backend service has its own README with service-specific setup notes — see the
+[Services table](../../README.md#-services) in the root README. The frontend's is
+[`frontend/README.md`](../../frontend/README.md).

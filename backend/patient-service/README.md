@@ -238,6 +238,6 @@ lands on the gRPC directory contract, that REST path is the one positioned to mo
 
 ---
 
-See [`../../ARCHITECTURE.md`](../../ARCHITECTURE.md) for the platform-wide communication model,
-and [`../../SUPPORTING_SERVICES.md`](../../SUPPORTING_SERVICES.md) for how this service's
+See [`../../docs/architecture/README.md`](../../docs/architecture/README.md) for the platform-wide communication model,
+and [`../../docs/architecture/supporting-services.md`](../../docs/architecture/supporting-services.md) for how this service's
 outbox-published events are consumed downstream.
