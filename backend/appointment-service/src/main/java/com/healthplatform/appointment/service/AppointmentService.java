@@ -117,6 +117,12 @@ public class AppointmentService {
         return toResponse(getOrThrow(id));
     }
 
+    @Transactional(readOnly = true)
+    public java.util.List<AppointmentResponse> getByPatientId(UUID patientId) {
+        return appointmentRepository.findAllByPatientIdOrderByScheduledStartDesc(patientId).stream()
+                .map(this::toResponse).toList();
+    }
+
     private Appointment getOrThrow(UUID id) {
         return appointmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Appointment not found: " + id));

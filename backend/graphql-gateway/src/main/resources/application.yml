@@ -1,6 +1,19 @@
 server:
   port: 8090
 
+# gRPC clients (PatientLookup/DoctorLookup) for the `patient`/`doctor` GraphQL fields — same
+# services appointment-service already calls for booking validation, just the GetXDetail RPCs.
+# Defaults match running each service directly on localhost; docker-compose.yml/k8s override
+# the host to the service DNS name, same pattern as appointment-service.
+grpc:
+  client:
+    patient-service:
+      address: static://${PATIENT_SERVICE_GRPC_HOST:localhost}:${PATIENT_SERVICE_GRPC_PORT:9082}
+      negotiationType: plaintext
+    doctor-service:
+      address: static://${DOCTOR_SERVICE_GRPC_HOST:localhost}:${DOCTOR_SERVICE_GRPC_PORT:9083}
+      negotiationType: plaintext
+
 spring:
   application:
     name: graphql-gateway
@@ -9,13 +22,10 @@ spring:
       enabled: true
     path: /graphql
 
-# Base URLs for the REST APIs this gateway aggregates. Defaults match running each service
-# directly on localhost; docker-compose.yml overrides these to the service DNS names.
+# Base URLs for the REST APIs this gateway still aggregates (appointment/billing don't expose
+# a gRPC server). Defaults match running each service directly on localhost; docker-compose.yml
+# overrides these to the service DNS names.
 services:
-  patient:
-    base-url: ${PATIENT_SERVICE_URL:http://localhost:8082}
-  doctor:
-    base-url: ${DOCTOR_SERVICE_URL:http://localhost:8083}
   appointment:
     base-url: ${APPOINTMENT_SERVICE_URL:http://localhost:8084}
   billing:

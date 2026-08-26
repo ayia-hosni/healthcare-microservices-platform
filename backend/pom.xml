@@ -11,6 +11,7 @@
   <name>Healthcare Platform (parent)</name>
 
   <modules>
+    <module>grpc-contracts</module>
     <module>common</module>
     <module>identity-service</module>
     <module>patient-service</module>
@@ -44,6 +45,12 @@
     <grpc.version>1.63.0</grpc.version>
     <protobuf.version>3.25.3</protobuf.version>
     <grpc-spring-boot-starter.version>3.1.0.RELEASE</grpc-spring-boot-starter.version>
+    <!-- HAPI FHIR R4: structures (Patient/Encounter/Condition/Observation/Bundle model classes,
+         JSON parsing), client (IGenericClient, talks to an external FHIR server's REST API),
+         and validation (FhirInstanceValidator against the bundled R4 base definitions — no
+         network/terminology-server calls needed for structural + cardinality validation). Only
+         emr-service uses these (see its pom.xml), not centrally BOM-imported here. -->
+    <hapi-fhir.version>7.4.0</hapi-fhir.version>
   </properties>
 
   <dependencyManagement>

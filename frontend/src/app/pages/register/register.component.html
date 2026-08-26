@@ -17,6 +17,23 @@
       />
       <small class="muted">At least 12 characters.</small>
     </label>
+    <label>
+      First name
+      <input type="text" name="firstName" [(ngModel)]="firstName" required autocomplete="given-name" />
+    </label>
+    <label>
+      Last name
+      <input type="text" name="lastName" [(ngModel)]="lastName" required autocomplete="family-name" />
+    </label>
+    <label>
+      Date of birth
+      <input type="date" name="dateOfBirth" [(ngModel)]="dateOfBirth" required autocomplete="bday" />
+    </label>
+    <label>
+      Phone number
+      <small class="muted">Optional.</small>
+      <input type="tel" name="phoneNumber" [(ngModel)]="phoneNumber" autocomplete="tel" />
+    </label>
 
     <p class="error" *ngIf="error">{{ error }}</p>
 

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Representative payer eligibility contract, not a real trading partner's actual schema.
+  In a real integration this file (and payer-eligibility.wsdl) would come FROM the payer/
+  clearinghouse, typically mapping to X12 270 (eligibility inquiry) / 271 (eligibility
+  response) underneath — replicating that fidelity isn't the point here; demonstrating a
+  contract-first SOAP client at an external boundary is. See
+  docs/adr/0003-soap-payer-eligibility-integration.md.
+
+  Request/response types are declared inline under their root element (rather than as
+  separately named complexTypes) so xjc generates @XmlRootElement-annotated classes
+  (CheckEligibilityRequest/CheckEligibilityResponse) directly usable with
+  WebServiceTemplate#marshalSendAndReceive, without an ObjectFactory/JAXBElement wrapper.
+-->
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            xmlns:tns="http://payer.example.com/eligibility/v1"
+            targetNamespace="http://payer.example.com/eligibility/v1"
+            elementFormDefault="qualified">
+
+  <xsd:element name="checkEligibilityRequest">
+    <xsd:complexType>
+      <xsd:sequence>
+        <xsd:element name="memberId" type="xsd:string"/>
+        <xsd:element name="payerId" type="xsd:string"/>
+        <xsd:element name="dateOfBirth" type="xsd:date"/>
+      </xsd:sequence>
+    </xsd:complexType>
+  </xsd:element>
+
+  <xsd:element name="checkEligibilityResponse">
+    <xsd:complexType>
+      <xsd:sequence>
+        <xsd:element name="eligible" type="xsd:boolean"/>
+        <xsd:element name="planName" type="xsd:string" minOccurs="0"/>
+        <xsd:element name="copayAmount" type="xsd:decimal" minOccurs="0"/>
+        <xsd:element name="payerMessage" type="xsd:string" minOccurs="0"/>
+      </xsd:sequence>
+    </xsd:complexType>
+  </xsd:element>
+
+</xsd:schema>

@@ -21,10 +21,10 @@ spec:
           ports:
             - containerPort: 8090
           env:
-            - name: PATIENT_SERVICE_URL
-              value: "http://patient-service.healthcare-platform.svc.cluster.local:8082"
-            - name: DOCTOR_SERVICE_URL
-              value: "http://doctor-service.healthcare-platform.svc.cluster.local:8083"
+            - name: PATIENT_SERVICE_GRPC_HOST
+              value: "patient-service.healthcare-platform.svc.cluster.local"
+            - name: DOCTOR_SERVICE_GRPC_HOST
+              value: "doctor-service.healthcare-platform.svc.cluster.local"
             - name: APPOINTMENT_SERVICE_URL
               value: "http://appointment-service.healthcare-platform.svc.cluster.local:8084"
             - name: BILLING_SERVICE_URL

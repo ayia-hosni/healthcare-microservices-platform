@@ -224,6 +224,18 @@ services:
       timeout: 5s
       retries: 5
 
+  # Stand-in for the external insurance payer billing-service's PayerEligibilityClient calls
+  # (see docs/adr/0003-soap-payer-eligibility-integration.md) — a generic HTTP/SOAP stub, not
+  # a hand-built fake server: no real integration team implements the counterparty's service,
+  # only a client against their WSDL. Mappings in infra/docker/payer-mock/.
+  payer-mock:
+    image: wiremock/wiremock:3.9.1
+    restart: unless-stopped
+    volumes:
+      - ./infra/docker/payer-mock:/home/wiremock
+    ports:
+      - "9091:8080"
+
   # ---------- Observability ----------
 
   zipkin:
@@ -392,6 +404,7 @@ services:
       DB_PASSWORD: billing_pass
       KAFKA_SASL_USERNAME: billing
       KAFKA_SASL_PASSWORD: local-dev-billing-pass
+      PAYER_ELIGIBILITY_URL: http://payer-mock:8080/ws
     volumes:
       - ./infra/docker/kafka/certs/kafka.truststore.p12:/etc/kafka/certs/kafka.truststore.p12:ro
     ports:
@@ -401,6 +414,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      payer-mock:
+        condition: service_started
 
   notification-service:
     <<: *app-defaults
@@ -476,17 +491,17 @@ services:
       kafka:
         condition: service_healthy
 
-  # GraphQL BFF for the frontend, aggregating patient/doctor/appointment/billing REST APIs
-  # behind one schema (GraphiQL at /graphiql). No database, no Kafka/RabbitMQ — a pure REST
-  # client, so it isn't part of x-common-env and doesn't need the Kafka truststore mount.
+  # GraphQL BFF for the frontend, aggregating patient/doctor gRPC lookups and
+  # appointment/billing REST APIs behind one schema (GraphiQL at /graphiql). No database, no
+  # Kafka/RabbitMQ, so it isn't part of x-common-env and doesn't need the Kafka truststore mount.
   graphql-gateway:
     <<: *app-defaults
     build:
       context: ./backend
       dockerfile: graphql-gateway/Dockerfile
     environment:
-      PATIENT_SERVICE_URL: http://patient-service:8082
-      DOCTOR_SERVICE_URL: http://doctor-service:8083
+      PATIENT_SERVICE_GRPC_HOST: patient-service
+      DOCTOR_SERVICE_GRPC_HOST: doctor-service
       APPOINTMENT_SERVICE_URL: http://appointment-service:8084
       BILLING_SERVICE_URL: http://billing-service:8086
     ports:

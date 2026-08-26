@@ -12,10 +12,12 @@
   <artifactId>graphql-gateway</artifactId>
   <packaging>jar</packaging>
   <name>graphql-gateway</name>
-  <description>GraphQL BFF for the frontend, aggregating patient/doctor/appointment/billing
-    REST APIs behind one schema. Does not depend on `common`: it does no JWT verification of
-    its own (forwards the caller's Authorization header downstream unchanged, see ADR-004)
-    and has no database, so it doesn't need common's JPA/security/JWT dependencies.</description>
+  <description>GraphQL BFF for the frontend, aggregating patient/doctor gRPC lookups and
+    appointment/billing REST APIs behind one schema. Still does not depend on `common`: it does
+    no JWT verification of its own (forwards the caller's Authorization header downstream
+    unchanged, see ADR-004) and has no database, so it doesn't need common's JPA/security/JWT
+    dependencies. It depends on grpc-contracts instead — just the generated message/stub
+    classes, none of that baggage (see grpc-contracts' pom for why it exists).</description>
 
   <dependencies>
     <dependency>
@@ -29,6 +31,20 @@
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+    <!-- Wire contracts for the PatientDirectory/DoctorDirectory RPCs this gateway calls over
+         gRPC (see the grpc package) — the wider read surface ADR-0004 added on patient-service
+         and doctor-service, alongside (not replacing) the narrower PatientLookup/DoctorLookup
+         appointment-service uses for booking validation. -->
+    <dependency>
+      <groupId>com.healthplatform</groupId>
+      <artifactId>grpc-contracts</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>net.devh</groupId>
+      <artifactId>grpc-client-spring-boot-starter</artifactId>
+      <version>${grpc-spring-boot-starter.version}</version>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>

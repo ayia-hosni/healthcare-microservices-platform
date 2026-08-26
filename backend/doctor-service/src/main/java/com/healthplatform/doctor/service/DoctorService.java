@@ -57,6 +57,11 @@ public class DoctorService {
     }
 
     @Transactional(readOnly = true)
+    public List<DoctorResponse> findAll() {
+        return doctorRepository.findAll().stream().map(this::toResponse).toList();
+    }
+
+    @Transactional(readOnly = true)
     public DoctorResponse getById(UUID id) {
         Doctor doctor = doctorRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor not found: " + id));

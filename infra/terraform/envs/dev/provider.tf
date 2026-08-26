@@ -10,6 +10,10 @@ provider "azurerm" {
   }
 }
 
+# Manages the GitHub Actions app registration in github-oidc.tf. Ambient auth only (same
+# az-login-session convention as the azurerm block above) — no tenant_id override needed.
+provider "azuread" {}
+
 # Authenticates as the Postgres server admin (see postgres.tf) to create one login role +
 # database per microservice, mirroring infra/docker/init-multiple-dbs.sh. Requires the
 # machine running `terraform apply` to be able to reach the server on 5432 — see the firewall

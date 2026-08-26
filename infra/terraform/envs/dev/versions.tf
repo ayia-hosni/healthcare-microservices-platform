@@ -14,5 +14,9 @@ terraform {
       source  = "cyrilgdn/postgresql"
       version = "~> 1.22"
     }
+    azuread = {
+      source  = "hashicorp/azuread"
+      version = "~> 3.0"
+    }
   }
 }

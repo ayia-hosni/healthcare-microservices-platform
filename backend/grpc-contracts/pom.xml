@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.healthplatform</groupId>
+    <artifactId>healthcare-platform</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>grpc-contracts</artifactId>
+  <packaging>jar</packaging>
+  <name>grpc-contracts</name>
+  <description>Generated gRPC messages/stubs (src/main/proto), split out of `common` so a
+    service can depend on the wire contracts alone without inheriting common's JPA/security/web
+    dependencies — graphql-gateway is exactly that case (see its pom for why it can't depend on
+    `common` directly). `common` also depends on this module and re-exports it, so every
+    existing gRPC caller/server that already imports com.healthplatform.common.grpc.* keeps
+    working unchanged.</description>
+
+  <dependencies>
+    <!-- Message + stub codegen support only — the actual transport (grpc-netty-shaded) comes
+         from net.devh:grpc-server/client-spring-boot-starter in the services that run a gRPC
+         server or client. -->
+    <dependency>
+      <groupId>io.grpc</groupId>
+      <artifactId>grpc-protobuf</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.grpc</groupId>
+      <artifactId>grpc-stub</artifactId>
+    </dependency>
+    <!-- protoc-gen-grpc-java still generates `@javax.annotation.Generated` (not the jakarta
+         namespace), which the JDK stopped bundling from Java 9 onward. -->
+    <dependency>
+      <groupId>javax.annotation</groupId>
+      <artifactId>javax.annotation-api</artifactId>
+      <version>1.3.2</version>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <extensions>
+      <!-- Resolves ${os.detected.classifier} below so the protoc/protoc-gen-grpc-java
+           binaries downloaded match the build machine's OS/arch. -->
+      <extension>
+        <groupId>kr.motd.maven</groupId>
+        <artifactId>os-maven-plugin</artifactId>
+        <version>1.7.1</version>
+      </extension>
+    </extensions>
+    <plugins>
+      <plugin>
+        <groupId>org.xolstice.maven.plugins</groupId>
+        <artifactId>protobuf-maven-plugin</artifactId>
+        <version>0.6.1</version>
+        <configuration>
+          <protocArtifact>com.google.protobuf:protoc:${protobuf.version}:exe:${os.detected.classifier}</protocArtifact>
+          <pluginId>grpc-java</pluginId>
+          <pluginArtifact>io.grpc:protoc-gen-grpc-java:${grpc.version}:exe:${os.detected.classifier}</pluginArtifact>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>compile</goal>
+              <goal>compile-custom</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

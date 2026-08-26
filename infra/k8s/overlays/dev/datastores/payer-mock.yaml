@@ -1,0 +1,138 @@
+# Stand-in for the external insurance payer billing-service's PayerEligibilityClient calls —
+# see docs/adr/0003-soap-payer-eligibility-integration.md. Mapping/response files below are
+# the same content docker-compose.yml mounts directly from infra/docker/payer-mock/ — inlined
+# here rather than referenced by path (same pattern as postgres-initdb's copy of
+# infra/docker/init-multiple-dbs.sh) since kustomize's default load restrictions don't allow
+# a configMapGenerator to read files outside this kustomization's own directory tree.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: payer-mock-mappings
+  namespace: healthcare-platform
+data:
+  eligible-default.json: |
+    {
+      "priority": 10,
+      "request": {
+        "method": "POST",
+        "urlPath": "/ws",
+        "headers": {
+          "SOAPAction": { "contains": "CheckEligibility" }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "text/xml;charset=UTF-8" },
+        "bodyFileName": "eligible-response.xml"
+      }
+    }
+  ineligible-member.json: |
+    {
+      "priority": 1,
+      "request": {
+        "method": "POST",
+        "urlPath": "/ws",
+        "headers": {
+          "SOAPAction": { "contains": "CheckEligibility" }
+        },
+        "bodyPatterns": [
+          { "contains": "<memberId>MEMBER-INELIGIBLE</memberId>" }
+        ]
+      },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "text/xml;charset=UTF-8" },
+        "bodyFileName": "ineligible-response.xml"
+      }
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: payer-mock-files
+  namespace: healthcare-platform
+data:
+  eligible-response.xml: |
+    <?xml version="1.0" encoding="UTF-8"?>
+    <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+      <soap:Body>
+        <checkEligibilityResponse xmlns="http://payer.example.com/eligibility/v1">
+          <eligible>true</eligible>
+          <planName>Gold PPO 500</planName>
+          <copayAmount>25.00</copayAmount>
+          <payerMessage>Active coverage confirmed (simulated payer-mock response).</payerMessage>
+        </checkEligibilityResponse>
+      </soap:Body>
+    </soap:Envelope>
+  ineligible-response.xml: |
+    <?xml version="1.0" encoding="UTF-8"?>
+    <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+      <soap:Body>
+        <checkEligibilityResponse xmlns="http://payer.example.com/eligibility/v1">
+          <eligible>false</eligible>
+          <payerMessage>No active coverage found for this member (simulated payer-mock response).</payerMessage>
+        </checkEligibilityResponse>
+      </soap:Body>
+    </soap:Envelope>
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payer-mock
+  namespace: healthcare-platform
+  labels:
+    app: payer-mock
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payer-mock
+  template:
+    metadata:
+      labels:
+        app: payer-mock
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: payer-mock
+          image: wiremock/wiremock:3.9.1
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: mappings
+              mountPath: /home/wiremock/mappings
+            - name: response-files
+              mountPath: /home/wiremock/__files
+          readinessProbe:
+            httpGet:
+              path: /__admin/mappings
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "250m"
+              memory: "256Mi"
+      volumes:
+        - name: mappings
+          configMap:
+            name: payer-mock-mappings
+        - name: response-files
+          configMap:
+            name: payer-mock-files
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payer-mock
+  namespace: healthcare-platform
+spec:
+  selector:
+    app: payer-mock
+  ports:
+    - port: 8080
+      targetPort: 8080
+  type: ClusterIP

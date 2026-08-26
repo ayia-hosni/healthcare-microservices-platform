@@ -30,6 +30,11 @@ public class DoctorController {
         return ResponseEntity.status(HttpStatus.CREATED).body(doctorService.create(request));
     }
 
+    @GetMapping
+    public ResponseEntity<List<DoctorResponse>> findAll() {
+        return ResponseEntity.ok(doctorService.findAll());
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<DoctorResponse> getById(@PathVariable UUID id) {
         return ResponseEntity.ok(doctorService.getById(id));

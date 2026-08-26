@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: healthcare-platform
+  namespace: argocd
+spec:
+  description: Healthcare microservices platform — application delivery
+  sourceRepos:
+    - https://github.com/ayia-hosni/healthcare-microservices-platform.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: healthcare-platform
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"

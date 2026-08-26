@@ -82,6 +82,32 @@
       <artifactId>postgresql</artifactId>
       <scope>test</scope>
     </dependency>
+
+    <!-- Referral workflow: builds/validates FHIR R4 Bundles (Patient/Encounter/Condition/
+         Observation) and submits them to an external FHIR server's REST API. -->
+    <dependency>
+      <groupId>ca.uhn.hapi.fhir</groupId>
+      <artifactId>hapi-fhir-structures-r4</artifactId>
+      <version>${hapi-fhir.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>ca.uhn.hapi.fhir</groupId>
+      <artifactId>hapi-fhir-client</artifactId>
+      <version>${hapi-fhir.version}</version>
+    </dependency>
+    <!-- FhirInstanceValidator + the bundled R4 base definitions it validates structure/
+         cardinality against — no external terminology service, so validation stays local
+         and fast (no network calls at request time). -->
+    <dependency>
+      <groupId>ca.uhn.hapi.fhir</groupId>
+      <artifactId>hapi-fhir-validation</artifactId>
+      <version>${hapi-fhir.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>ca.uhn.hapi.fhir</groupId>
+      <artifactId>hapi-fhir-validation-resources-r4</artifactId>
+      <version>${hapi-fhir.version}</version>
+    </dependency>
   </dependencies>
 
   <build>

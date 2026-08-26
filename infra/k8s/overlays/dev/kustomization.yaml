@@ -8,6 +8,7 @@ resources:
   - datastores/kafka.yaml
   - datastores/rabbitmq.yaml
   - datastores/minio.yaml
+  - datastores/payer-mock.yaml
 
 replicas:
   - name: identity-service
@@ -52,6 +53,20 @@ patches:
         name: platform-config
       data:
         CORS_ALLOWED_ORIGINS: "http://localhost:8080,http://localhost:4200"
+
+  # base's PAYER_ELIGIBILITY_URL is an explicit placeholder (see infra/k8s/base/configmap.yaml)
+  # since it's a third-party endpoint, not infrastructure this platform would ever run itself.
+  # Dev overlay points it at the in-cluster payer-mock WireMock stub instead.
+  - target:
+      kind: ConfigMap
+      name: platform-config
+    patch: |-
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: platform-config
+      data:
+        PAYER_ELIGIBILITY_URL: "http://payer-mock.healthcare-platform.svc.cluster.local:8080/ws"
 
   # Real, working dev credentials in place of base's placeholder secrets. Values here are
   # deliberately paired with the datastore manifests: DB_PASSWORD matches the password baked

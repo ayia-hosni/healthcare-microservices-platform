@@ -8,6 +8,11 @@ data:
   REDIS_HOST: "redis.healthcare-platform.svc.cluster.local"
   REDIS_PORT: "6379"
   RABBITMQ_HOST: "rabbitmq.healthcare-platform.svc.cluster.local"
+  # Unlike everything else in this file, this isn't infrastructure this platform would ever
+  # run itself — it's a third-party insurance payer's SOAP endpoint (see
+  # docs/adr/0003-soap-payer-eligibility-integration.md). Left as an explicit placeholder;
+  # the dev overlay points it at an in-cluster WireMock stub instead of a real payer.
+  PAYER_ELIGIBILITY_URL: "https://REPLACE-WITH-REAL-PAYER-ENDPOINT/ws"
   # Kafka SASL usernames (not secret — paired passwords live in platform-secrets).
   # NOTE: KAFKA_SSL_TRUSTSTORE_LOCATION is left at its application.yml default
   # (/etc/kafka/certs/kafka.truststore.p12). This repo doesn't provision the truststore

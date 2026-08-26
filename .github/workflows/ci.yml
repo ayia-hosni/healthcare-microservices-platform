@@ -1,0 +1,181 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  ACR_LOGIN_SERVER: ${{ vars.ACR_LOGIN_SERVER }}
+
+jobs:
+  backend-unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      # No maven-failsafe-plugin in this reactor — Surefire's default include pattern already
+      # matches *IntegrationTest.java, so unit vs. integration is split by -Dtest pattern here.
+      - run: mvn -B -f backend/pom.xml test -Dtest='!*IntegrationTest'
+
+  backend-integration-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      # ubuntu-latest ships Docker preinstalled; every service's *IntegrationTest only spins up
+      # a single Testcontainers PostgreSQLContainer, so nothing else needs configuring here.
+      - run: mvn -B -f backend/pom.xml test -Dtest='*IntegrationTest'
+
+  frontend-build-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      # Nothing in this repo configures headless Karma today — ChromeHeadless must be passed
+      # explicitly. ubuntu-latest runners already bundle Chrome.
+      - run: npx ng test --no-watch --no-progress --browsers=ChromeHeadless
+
+  docker-build-push:
+    needs: [backend-unit-tests, backend-integration-tests, frontend-build-test]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - identity-service
+          - patient-service
+          - doctor-service
+          - appointment-service
+          - emr-service
+          - billing-service
+          - notification-service
+          - audit-service
+          - analytics-service
+          - graphql-gateway
+          - frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - run: az acr login --name "${ACR_LOGIN_SERVER%%.*}"
+      - name: Build and push (backend service)
+        if: matrix.service != 'frontend'
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          file: backend/${{ matrix.service }}/Dockerfile
+          push: true
+          tags: |
+            ${{ env.ACR_LOGIN_SERVER }}/healthcare-platform/${{ matrix.service }}:${{ github.sha }}
+            ${{ env.ACR_LOGIN_SERVER }}/healthcare-platform/${{ matrix.service }}:latest
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+      - name: Build and push (frontend)
+        if: matrix.service == 'frontend'
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          file: frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.ACR_LOGIN_SERVER }}/healthcare-platform/frontend:${{ github.sha }}
+            ${{ env.ACR_LOGIN_SERVER }}/healthcare-platform/frontend:latest
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+  deploy:
+    needs: [docker-build-push]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - run: |
+          az aks get-credentials \
+            --resource-group "${{ vars.AKS_RESOURCE_GROUP }}" \
+            --name "${{ vars.AKS_CLUSTER_NAME }}" \
+            --overwrite-existing
+      - uses: azure/setup-kubectl@v4
+      - uses: azure/setup-helm@v4
+      - uses: imranismail/setup-kustomize@v2
+      - name: Install/upgrade ingress-nginx
+        # Idempotent — no-ops when already installed/unchanged. Provisions (and keeps) an Azure
+        # Load Balancer with a public IP the first time this runs: an ongoing real cost, not a
+        # one-off, since no Ingress controller exists on this cluster otherwise (see
+        # docs/adr/0001-api-gateway-ingress.md).
+        run: |
+          helm upgrade --install ingress-nginx ingress-nginx \
+            --repo https://kubernetes.github.io/ingress-nginx \
+            --namespace ingress-nginx --create-namespace
+      - name: Set image tags and apply manifests
+        working-directory: infra/k8s/overlays/aks
+        run: |
+          set -euo pipefail
+          for svc in identity-service patient-service doctor-service \
+                     appointment-service emr-service billing-service \
+                     notification-service audit-service analytics-service \
+                     graphql-gateway frontend; do
+            kustomize edit set image \
+              "healthcare-platform/$svc=${ACR_LOGIN_SERVER}/healthcare-platform/$svc:${GITHUB_SHA}"
+          done
+          kubectl apply -k .
+      - name: Apply real platform-secrets
+        # Runs after `kubectl apply -k`, which reinstates base's placeholder Secret unmodified
+        # (the aks overlay has no patch targeting it) — this step overwrites it back to real
+        # values every deploy, so the sequence stays idempotent regardless of order across runs.
+        run: |
+          kubectl create secret generic platform-secrets \
+            -n healthcare-platform \
+            --from-literal=JWT_SECRET="${{ secrets.JWT_SECRET }}" \
+            --from-literal=DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
+            --from-literal=RABBITMQ_USER="${{ secrets.RABBITMQ_USER }}" \
+            --from-literal=RABBITMQ_PASSWORD="${{ secrets.RABBITMQ_PASSWORD }}" \
+            --from-literal=KAFKA_SASL_PASSWORD_IDENTITY=unused-kafka-is-plaintext-on-aks \
+            --from-literal=KAFKA_SASL_PASSWORD_PATIENT=unused-kafka-is-plaintext-on-aks \
+            --from-literal=KAFKA_SASL_PASSWORD_DOCTOR=unused-kafka-is-plaintext-on-aks \
+            --from-literal=KAFKA_SASL_PASSWORD_APPOINTMENT=unused-kafka-is-plaintext-on-aks \
+            --from-literal=KAFKA_SASL_PASSWORD_EMR=unused-kafka-is-plaintext-on-aks \
+            --from-literal=KAFKA_SASL_PASSWORD_BILLING=unused-kafka-is-plaintext-on-aks \
+            --from-literal=KAFKA_SASL_PASSWORD_NOTIFICATION=unused-kafka-is-plaintext-on-aks \
+            --from-literal=KAFKA_SASL_PASSWORD_AUDIT=unused-kafka-is-plaintext-on-aks \
+            --from-literal=KAFKA_SASL_PASSWORD_ANALYTICS=unused-kafka-is-plaintext-on-aks \
+            --dry-run=client -o yaml | kubectl apply -f -
+      - name: Wait for rollouts
+        run: |
+          set -euo pipefail
+          for svc in identity-service patient-service doctor-service \
+                     appointment-service emr-service billing-service \
+                     notification-service audit-service analytics-service \
+                     graphql-gateway frontend; do
+            kubectl -n healthcare-platform rollout status "deployment/$svc" --timeout=300s
+          done

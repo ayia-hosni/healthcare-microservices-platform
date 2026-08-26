@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <checkEligibilityResponse xmlns="http://payer.example.com/eligibility/v1">
+      <eligible>false</eligible>
+      <payerMessage>No active coverage found for this member (simulated payer-mock response).</payerMessage>
+    </checkEligibilityResponse>
+  </soap:Body>
+</soap:Envelope>

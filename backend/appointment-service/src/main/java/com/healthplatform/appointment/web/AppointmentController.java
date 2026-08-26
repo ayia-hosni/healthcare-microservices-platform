@@ -46,6 +46,12 @@ public class AppointmentController {
         return ResponseEntity.ok(appointmentService.getById(id));
     }
 
+    @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN','PATIENT','DOCTOR','NURSE')")
+    public ResponseEntity<java.util.List<AppointmentResponse>> getByPatientId(@RequestParam UUID patientId) {
+        return ResponseEntity.ok(appointmentService.getByPatientId(patientId));
+    }
+
     @PostMapping("/{id}/cancel")
     @PreAuthorize("hasAnyRole('ADMIN','PATIENT','DOCTOR','NURSE')")
     public ResponseEntity<AppointmentResponse> cancel(@PathVariable UUID id, @Valid @RequestBody CancelRequest request,

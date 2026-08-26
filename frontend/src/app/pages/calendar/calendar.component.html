@@ -1,0 +1,62 @@
+<h2 class="header-title">Calendar</h2>
+
+<p class="muted" *ngIf="loading">Loading…</p>
+<p class="error" *ngIf="loadError">{{ loadError }}</p>
+
+<div class="fc-header">
+  <div class="fc-header-controls">
+    <button type="button" class="fc-btn" (click)="prevMonth()"><i class="fa-solid fa-chevron-left"></i></button>
+    <h3 style="color: var(--text); font-size: 1.05rem; min-width: 150px; text-align: center; margin: 0;">
+      {{ monthLabel }}
+    </h3>
+    <button type="button" class="fc-btn" (click)="nextMonth()"><i class="fa-solid fa-chevron-right"></i></button>
+  </div>
+</div>
+
+<div class="fc-grid-wrapper">
+  <div class="fc-days">
+    <div *ngFor="let d of weekdays">{{ d }}</div>
+  </div>
+  <div class="fc-grid">
+    <div class="fc-cell" [class.empty]="cell.day === null" [class.today]="cell.isToday" *ngFor="let cell of cells">
+      <span class="fc-date" *ngIf="cell.day !== null">{{ cell.day }}</span>
+      <div
+        *ngFor="let appt of cell.appointments"
+        [class]="eventClass(appt)"
+        (click)="selectAppointment(appt)"
+      >
+        {{ appt.scheduledStart | date: 'h:mm a' }} · {{ doctorName(appt.doctorId) }}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card" *ngIf="selected" style="margin-top: 1.5rem;">
+  <div class="modal-header">
+    <h3 style="margin: 0;">Appointment Details</h3>
+    <button class="close-modal" type="button" (click)="closeDetail()"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <dl class="detail-list">
+    <dt>Doctor</dt>
+    <dd>{{ doctorName(selected.doctorId) }}</dd>
+    <dt>Start</dt>
+    <dd>{{ selected.scheduledStart | date: 'medium' }}</dd>
+    <dt>End</dt>
+    <dd>{{ selected.scheduledEnd | date: 'medium' }}</dd>
+    <dt>Status</dt>
+    <dd><span class="status" [class]="selected.status.toLowerCase()">{{ selected.status }}</span></dd>
+  </dl>
+
+  <ng-container *ngIf="selected.status === 'SCHEDULED'">
+    <div class="form-group">
+      <label>
+        Cancellation reason
+        <input type="text" name="cancelReason" [(ngModel)]="cancelReason" placeholder="Optional" />
+      </label>
+    </div>
+    <p class="error" *ngIf="cancelError">{{ cancelError }}</p>
+    <button type="button" (click)="confirmCancel()" [disabled]="cancelling">
+      {{ cancelling ? 'Cancelling…' : 'Cancel appointment' }}
+    </button>
+  </ng-container>
+</div>

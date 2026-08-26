@@ -54,6 +54,21 @@ output "workload_identity_client_id" {
   description = "Set as azure.workload.identity/client-id annotation on the platform-workload-identity ServiceAccount."
 }
 
+output "github_actions_client_id" {
+  value       = azuread_application.github_actions.client_id
+  description = "Set as the GitHub repo variable AZURE_CLIENT_ID."
+}
+
+output "github_actions_tenant_id" {
+  value       = data.azurerm_client_config.current.tenant_id
+  description = "Set as the GitHub repo variable AZURE_TENANT_ID."
+}
+
+output "github_actions_subscription_id" {
+  value       = data.azurerm_client_config.current.subscription_id
+  description = "Set as the GitHub repo variable AZURE_SUBSCRIPTION_ID."
+}
+
 output "service_databases" {
   description = "Per-service DB connection info (host/port are shared; password lives in Key Vault as \"<service>-db-password\")."
   value = {

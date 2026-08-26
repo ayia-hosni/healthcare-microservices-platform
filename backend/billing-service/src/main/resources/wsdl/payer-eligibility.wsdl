@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Representative payer eligibility contract — see payer-eligibility.xsd's header comment
+  and docs/adr/0003-soap-payer-eligibility-integration.md. Kept alongside the XSD as the
+  full contract a real payer/clearinghouse would hand over; PayerEligibilityClient itself
+  only needs the XSD (for JAXB codegen) and the endpoint URL (configured via
+  payer.eligibility.url), same as any real Spring-WS client would.
+-->
+<wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+                   xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+                   xmlns:tns="http://payer.example.com/eligibility/v1"
+                   targetNamespace="http://payer.example.com/eligibility/v1">
+
+  <wsdl:types>
+    <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+      <xsd:import namespace="http://payer.example.com/eligibility/v1"
+                  schemaLocation="payer-eligibility.xsd"/>
+    </xsd:schema>
+  </wsdl:types>
+
+  <wsdl:message name="CheckEligibilityRequestMessage">
+    <wsdl:part name="parameters" element="tns:checkEligibilityRequest"/>
+  </wsdl:message>
+  <wsdl:message name="CheckEligibilityResponseMessage">
+    <wsdl:part name="parameters" element="tns:checkEligibilityResponse"/>
+  </wsdl:message>
+
+  <wsdl:portType name="PayerEligibilityPortType">
+    <wsdl:operation name="CheckEligibility">
+      <wsdl:input message="tns:CheckEligibilityRequestMessage"/>
+      <wsdl:output message="tns:CheckEligibilityResponseMessage"/>
+    </wsdl:operation>
+  </wsdl:portType>
+
+  <wsdl:binding name="PayerEligibilitySoap11Binding" type="tns:PayerEligibilityPortType">
+    <soap:binding transport="http://schemas.xmlsoap.org/soap/http"/>
+    <wsdl:operation name="CheckEligibility">
+      <soap:operation soapAction="http://payer.example.com/eligibility/v1/CheckEligibility"/>
+      <wsdl:input>
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+
+  <wsdl:service name="PayerEligibilityService">
+    <wsdl:port name="PayerEligibilityPort" binding="tns:PayerEligibilitySoap11Binding">
+      <!-- Placeholder — real deployments override via PAYER_ELIGIBILITY_URL; see
+           infra/k8s/base/configmap.yaml. -->
+      <soap:address location="https://REPLACE-WITH-REAL-PAYER-ENDPOINT/ws"/>
+    </wsdl:port>
+  </wsdl:service>
+
+</wsdl:definitions>

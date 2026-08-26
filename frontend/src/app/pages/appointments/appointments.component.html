@@ -1,68 +1,169 @@
-<div class="card">
-  <h1>Book an Appointment</h1>
-  <p class="muted">Find a doctor's ID on the <a routerLink="/doctors">Doctors</a> page first.</p>
+<h2 class="header-title">Appointments</h2>
 
-  <form (ngSubmit)="book()" #bookForm="ngForm">
-    <label>
-      Doctor ID
-      <input type="text" name="doctorId" [(ngModel)]="doctorId" required placeholder="UUID" />
-    </label>
-    <label>
-      Start time
-      <input type="datetime-local" name="scheduledStart" [(ngModel)]="scheduledStart" required />
-    </label>
-    <label>
-      End time
-      <input type="datetime-local" name="scheduledEnd" [(ngModel)]="scheduledEnd" required />
-    </label>
+<div class="toolbar">
+  <div class="toolbar-left">
+    <div class="search-box">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input
+        type="text"
+        name="search"
+        [(ngModel)]="searchQuery"
+        (ngModelChange)="onFilterChange()"
+        placeholder="Search by doctor…"
+      />
+    </div>
 
-    <p class="error" *ngIf="bookError">{{ bookError }}</p>
+    <select class="filter-select" name="statusFilter" [(ngModel)]="statusFilter" (ngModelChange)="onFilterChange()">
+      <option value="All">All statuses</option>
+      <option value="SCHEDULED">Scheduled</option>
+      <option value="COMPLETED">Completed</option>
+      <option value="CANCELLED">Cancelled</option>
+      <option value="RESCHEDULED">Rescheduled</option>
+    </select>
+  </div>
 
-    <button type="submit" [disabled]="bookForm.invalid || booking">
-      {{ booking ? 'Booking…' : 'Book appointment' }}
-    </button>
-  </form>
+  <button type="button" class="create-btn" (click)="openModal()">
+    <i class="fa-solid fa-plus"></i> Create new
+  </button>
+</div>
 
-  <div class="callout" *ngIf="booked">
-    <p>Booked! Status: <strong>{{ booked.status }}</strong></p>
-    <p>Appointment ID: <code>{{ booked.id }}</code></p>
+<p class="muted" *ngIf="loading">Loading…</p>
+<p class="error" *ngIf="loadError">{{ loadError }}</p>
+
+<div class="table-container" *ngIf="!loading && !loadError">
+  <div class="table-header" *ngIf="paginated.length">
+    <div class="sortable" (click)="sortBy('doctor')">Doctor <i class="fa-solid fa-sort"></i></div>
+    <div class="sortable" (click)="sortBy('date')">Date &amp; time <i class="fa-solid fa-sort"></i></div>
+    <div>Appointment ID</div>
+    <div class="sortable" (click)="sortBy('duration')">Duration <i class="fa-solid fa-sort"></i></div>
+    <div class="sortable" (click)="sortBy('status')">Status <i class="fa-solid fa-sort"></i></div>
+    <div></div>
+  </div>
+
+  <div class="table-row" *ngFor="let appt of paginated">
+    <div>{{ doctorName(appt.doctorId) }}</div>
+    <div class="date-col">
+      <span>{{ appt.scheduledStart | date: 'MMM d, y' }}</span>
+      <span>{{ appt.scheduledStart | date: 'h:mm a' }} – {{ appt.scheduledEnd | date: 'h:mm a' }}</span>
+    </div>
+    <div><code>{{ appt.id.slice(0, 8) }}…</code></div>
+    <div>{{ durationLabel(appt) }}</div>
+    <div><span class="status" [class]="appt.status.toLowerCase()">{{ appt.status }}</span></div>
+    <div class="action-cell">
+      <button class="action-btn" (click)="toggleActionMenu($event, appt.id)">
+        <i class="fa-solid fa-ellipsis-vertical"></i>
+      </button>
+      <div class="action-menu fade-in" *ngIf="activeMenuId === appt.id" (click)="$event.stopPropagation()">
+        <button type="button" *ngIf="appt.status === 'SCHEDULED'" class="delete" (click)="openCancelModal(appt)">
+          <i class="fa-regular fa-circle-xmark"></i> Cancel
+        </button>
+        <span *ngIf="appt.status !== 'SCHEDULED'" class="muted" style="padding: 0.7rem 1rem; display: block;">
+          No actions available
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div class="empty-state" *ngIf="!paginated.length">
+    <i class="fa-regular fa-folder-open"></i>
+    <p>No appointments found.</p>
   </div>
 </div>
 
-<div class="card">
-  <h1>Manage an Appointment</h1>
-  <form (ngSubmit)="lookup()" class="inline-form">
-    <label>
-      Appointment ID
-      <input type="text" name="lookupId" [(ngModel)]="lookupId" required placeholder="UUID" />
-    </label>
-    <button type="submit" [disabled]="lookupLoading">
-      {{ lookupLoading ? 'Looking up…' : 'Look up' }}
-    </button>
-  </form>
+<div class="pagination" *ngIf="!loading && !loadError && sorted.length">
+  <div class="show-rows">
+    Show
+    <select class="filter-select" style="min-width: 70px;" [(ngModel)]="rowsPerPage" (ngModelChange)="currentPage = 1">
+      <option [ngValue]="5">5</option>
+      <option [ngValue]="8">8</option>
+      <option [ngValue]="12">12</option>
+      <option [ngValue]="20">20</option>
+    </select>
+    per page
+  </div>
+  <div class="page-controls">
+    <span>{{ currentPage }} of {{ totalPages }}</span>
+    <div class="page-arrows">
+      <button type="button" (click)="prevPage()" [disabled]="currentPage === 1">
+        <i class="fa-solid fa-chevron-left"></i>
+      </button>
+      <button type="button" (click)="nextPage()" [disabled]="currentPage === totalPages">
+        <i class="fa-solid fa-chevron-right"></i>
+      </button>
+    </div>
+  </div>
+</div>
 
-  <p class="error" *ngIf="lookupError">{{ lookupError }}</p>
+<!-- Create appointment modal -->
+<div class="modal-overlay" *ngIf="modalOpen" (click)="closeModal()">
+  <div class="modal-content fade-in" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Create New Appointment</h3>
+      <button class="close-modal" type="button" (click)="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form (ngSubmit)="book()" #bookForm="ngForm">
+      <div class="form-group">
+        <label>
+          Doctor
+          <select name="newDoctorId" [(ngModel)]="newDoctorId" required>
+            <option value="" disabled>Select a doctor</option>
+            <option *ngFor="let doctor of doctors" [value]="doctor.id">
+              Dr. {{ doctor.firstName }} {{ doctor.lastName }} — {{ doctor.specialty }}
+            </option>
+          </select>
+        </label>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>
+            Start time
+            <input type="datetime-local" name="newStart" [(ngModel)]="newStart" required />
+          </label>
+        </div>
+        <div class="form-group">
+          <label>
+            End time
+            <input type="datetime-local" name="newEnd" [(ngModel)]="newEnd" required />
+          </label>
+        </div>
+      </div>
 
-  <div *ngIf="found">
-    <dl class="detail-list">
-      <dt>Status</dt>
-      <dd>{{ found.status }}</dd>
-      <dt>Doctor ID</dt>
-      <dd><code>{{ found.doctorId }}</code></dd>
-      <dt>Start</dt>
-      <dd>{{ found.scheduledStart | date: 'medium' }}</dd>
-      <dt>End</dt>
-      <dd>{{ found.scheduledEnd | date: 'medium' }}</dd>
-    </dl>
+      <p class="error" *ngIf="bookError">{{ bookError }}</p>
 
-    <form (ngSubmit)="cancel()" class="inline-form" *ngIf="found.status !== 'CANCELLED'">
+      <div class="modal-actions">
+        <button type="button" (click)="closeModal()">Cancel</button>
+        <button type="submit" [disabled]="bookForm.invalid || booking">
+          {{ booking ? 'Booking…' : 'Create Appointment' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Cancel appointment modal -->
+<div class="modal-overlay" *ngIf="cancelTarget" (click)="closeCancelModal()">
+  <div class="modal-content fade-in" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Cancel Appointment</h3>
+      <button class="close-modal" type="button" (click)="closeCancelModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <p class="muted">
+      With {{ doctorName(cancelTarget!.doctorId) }} on {{ cancelTarget!.scheduledStart | date: 'medium' }}.
+    </p>
+    <div class="form-group">
       <label>
         Cancellation reason
         <input type="text" name="cancelReason" [(ngModel)]="cancelReason" placeholder="Optional" />
       </label>
-      <button type="submit" [disabled]="cancelling">
-        {{ cancelling ? 'Cancelling…' : 'Cancel appointment' }}
+    </div>
+
+    <p class="error" *ngIf="cancelError">{{ cancelError }}</p>
+
+    <div class="modal-actions">
+      <button type="button" (click)="closeCancelModal()">Keep appointment</button>
+      <button type="button" (click)="confirmCancel()" [disabled]="cancelling">
+        {{ cancelling ? 'Cancelling…' : 'Confirm cancellation' }}
       </button>
-    </form>
+    </div>
   </div>
 </div>

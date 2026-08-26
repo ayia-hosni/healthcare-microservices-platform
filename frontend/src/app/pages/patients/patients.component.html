@@ -1,0 +1,42 @@
+<h2 class="header-title">Patients</h2>
+
+<div class="toolbar">
+  <div class="toolbar-left">
+    <form (ngSubmit)="search()" class="search-box">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input type="text" name="query" [(ngModel)]="query" placeholder="Search patients by name or email…" />
+    </form>
+  </div>
+  <button type="submit" class="create-btn" (click)="search()" [disabled]="loading || !query.trim()">
+    <i class="fa-solid fa-magnifying-glass"></i> Search
+  </button>
+</div>
+
+<p class="muted" *ngIf="loading">Loading…</p>
+<p class="error" *ngIf="error">{{ error }}</p>
+
+<div class="cards-grid" *ngIf="!loading && results.length">
+  <div class="entity-card" *ngFor="let patient of results">
+    <div class="entity-header">
+      <div class="entity-avatar">{{ initials(patient) }}</div>
+      <div class="entity-info">
+        <h4>{{ patient.firstName }} {{ patient.lastName }}</h4>
+        <p>{{ patient.dateOfBirth }}</p>
+      </div>
+    </div>
+    <p class="muted" style="margin: 0;">{{ patient.email }}</p>
+    <p class="muted" style="margin: 0;" *ngIf="patient.phoneNumber">{{ patient.phoneNumber }}</p>
+    <div class="entity-footer">
+      <code>{{ patient.id.slice(0, 8) }}…</code>
+      <a [routerLink]="['/appointments']">
+        <button type="button">View appointments</button>
+      </a>
+    </div>
+  </div>
+</div>
+
+<div class="empty-state" *ngIf="!loading && !error && !results.length">
+  <i class="fa-solid fa-user-plus"></i>
+  <p *ngIf="searched">No patients found for "{{ query }}".</p>
+  <p *ngIf="!searched">Search by name or email to find a patient record.</p>
+</div>

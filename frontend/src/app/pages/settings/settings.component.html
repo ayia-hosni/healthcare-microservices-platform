@@ -1,0 +1,46 @@
+<h2 class="header-title">Settings</h2>
+
+<div class="settings-panel">
+  <div class="settings-group">
+    <h4>Account</h4>
+    <p class="muted" *ngIf="loading">Loading…</p>
+    <dl class="detail-list" *ngIf="!loading">
+      <dt>Email</dt>
+      <dd>{{ auth.currentUser()?.email }}</dd>
+      <dt>Roles</dt>
+      <dd>{{ auth.currentUser()?.roles?.join(', ') || '—' }}</dd>
+      <dt>Name</dt>
+      <dd>{{ profile ? profile.firstName + ' ' + profile.lastName : '—' }}</dd>
+      <dt>Phone</dt>
+      <dd>{{ profile?.phoneNumber || '—' }}</dd>
+    </dl>
+    <p class="muted" style="margin-top: 0.75rem;">
+      To update your name, phone number, or date of birth, use the
+      <a routerLink="/profile">Profile</a> page.
+    </p>
+  </div>
+
+  <div class="settings-group">
+    <h4>Preferences <span class="badge-soon">Coming soon</span></h4>
+    <p class="muted">
+      Default calendar view and notification preferences aren't wired to a backend endpoint yet
+      — this panel is a placeholder matching the target design until that API exists.
+    </p>
+    <div class="form-group">
+      <label>
+        Default Calendar View
+        <select disabled>
+          <option>Monthly</option>
+        </select>
+      </label>
+    </div>
+    <div class="form-group">
+      <label>
+        Notification Alerts
+        <select disabled>
+          <option>All Alerts</option>
+        </select>
+      </label>
+    </div>
+  </div>
+</div>

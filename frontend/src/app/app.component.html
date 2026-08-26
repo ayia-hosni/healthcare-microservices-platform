@@ -1,13 +1,72 @@
-<header class="top-nav" *ngIf="auth.isLoggedIn">
-  <a class="brand" routerLink="/">Healthcare Platform</a>
-  <nav>
-    <a routerLink="/doctors">Doctors</a>
-    <a routerLink="/profile">Profile</a>
-    <a routerLink="/appointments">Appointments</a>
-    <button type="button" (click)="auth.logout()">Log out</button>
-  </nav>
-</header>
+<div class="app-container" *ngIf="auth.isLoggedIn">
+  <aside class="sidebar">
+    <a class="logo" routerLink="/">
+      <i class="fa-solid fa-staff-snake"></i>
+      <span>Healthcare</span>
+    </a>
 
-<main>
+    <ul class="nav-menu">
+      <li class="nav-item">
+        <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
+          <i class="fa-solid fa-chart-pie"></i> <span>Dashboard</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a routerLink="/calendar" routerLinkActive="active">
+          <i class="fa-regular fa-calendar-days"></i> <span>Calendar</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a routerLink="/doctors" routerLinkActive="active">
+          <i class="fa-solid fa-user-doctor"></i> <span>Doctors</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a routerLink="/patients" routerLinkActive="active">
+          <i class="fa-solid fa-user-plus"></i> <span>Patients</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a routerLink="/appointments" routerLinkActive="active">
+          <i class="fa-regular fa-calendar-check"></i> <span>Appointments</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a routerLink="/profile" routerLinkActive="active">
+          <i class="fa-regular fa-user"></i> <span>Profile</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a routerLink="/billing" routerLinkActive="active">
+          <i class="fa-solid fa-credit-card"></i> <span>Billing</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a routerLink="/settings" routerLinkActive="active">
+          <i class="fa-solid fa-gear"></i> <span>Settings</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a routerLink="/support" routerLinkActive="active">
+          <i class="fa-regular fa-comment-dots"></i> <span>Support</span>
+        </a>
+      </li>
+    </ul>
+
+    <button type="button" class="user-profile" (click)="auth.logout()" title="Log out">
+      <div class="avatar-circle">{{ initials }}</div>
+      <div class="user-info">
+        <h4>{{ auth.currentUser()?.email }}</h4>
+        <p>Log out</p>
+      </div>
+    </button>
+  </aside>
+
+  <main class="main-content">
+    <router-outlet />
+  </main>
+</div>
+
+<div class="auth-shell" *ngIf="!auth.isLoggedIn">
   <router-outlet />
-</main>
+</div>

@@ -1,0 +1,96 @@
+<h2 class="header-title">Billing details</h2>
+
+<div class="card">
+  <h1>Look up an Invoice</h1>
+  <p class="muted">You'll need the invoice ID — this is sent with your appointment confirmation.</p>
+
+  <form (ngSubmit)="lookupInvoice()" class="inline-form">
+    <label>
+      Invoice ID
+      <input type="text" name="invoiceId" [(ngModel)]="invoiceId" required placeholder="UUID" />
+    </label>
+    <button type="submit" [disabled]="lookingUpInvoice">
+      {{ lookingUpInvoice ? 'Looking up…' : 'Look up' }}
+    </button>
+  </form>
+
+  <p class="error" *ngIf="invoiceError">{{ invoiceError }}</p>
+
+  <div *ngIf="invoice">
+    <dl class="detail-list">
+      <dt>Status</dt>
+      <dd><span class="badge" [class]="'badge-' + invoice.status.toLowerCase()">{{ invoice.status }}</span></dd>
+      <dt>Amount</dt>
+      <dd>{{ invoice.amount | number: '1.2-2' }} {{ invoice.currency }}</dd>
+      <dt>Due date</dt>
+      <dd>{{ invoice.dueDate | date: 'medium' }}</dd>
+      <dt>Appointment ID</dt>
+      <dd><code>{{ invoice.appointmentId }}</code></dd>
+    </dl>
+
+    <form
+      (ngSubmit)="pay()"
+      class="inline-form"
+      *ngIf="invoice.status !== 'PAID' && invoice.status !== 'CANCELLED'"
+    >
+      <label>
+        Amount
+        <input type="number" name="paymentAmount" [(ngModel)]="paymentAmount" step="0.01" min="0.01" required />
+      </label>
+      <label>
+        Payment method
+        <select name="paymentMethod" [(ngModel)]="paymentMethod">
+          <option value="CARD">Card</option>
+          <option value="BANK_TRANSFER">Bank transfer</option>
+          <option value="CASH">Cash</option>
+        </select>
+      </label>
+      <button type="submit" [disabled]="paying">{{ paying ? 'Paying…' : 'Pay invoice' }}</button>
+    </form>
+
+    <p class="error" *ngIf="paymentError">{{ paymentError }}</p>
+  </div>
+</div>
+
+<div class="card">
+  <h1>Check Insurance Eligibility</h1>
+  <p class="muted">Verifies coverage with the patient's insurance payer.</p>
+
+  <form (ngSubmit)="checkEligibility()" #eligibilityForm="ngForm">
+    <div class="form-row">
+      <div class="form-group">
+        <label>
+          Member ID
+          <input type="text" name="memberId" [(ngModel)]="memberId" required />
+        </label>
+      </div>
+      <div class="form-group">
+        <label>
+          Payer ID
+          <input type="text" name="payerId" [(ngModel)]="payerId" required />
+        </label>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>
+        Date of birth
+        <input type="date" name="dateOfBirth" [(ngModel)]="dateOfBirth" required />
+      </label>
+    </div>
+
+    <p class="error" *ngIf="eligibilityError">{{ eligibilityError }}</p>
+
+    <button type="submit" [disabled]="eligibilityForm.invalid || checkingEligibility">
+      {{ checkingEligibility ? 'Checking…' : 'Check eligibility' }}
+    </button>
+  </form>
+
+  <div class="callout" *ngIf="eligibilityResult">
+    <p>
+      <strong>{{ eligibilityResult.eligible ? 'Eligible' : 'Not eligible' }}</strong>
+      — {{ eligibilityResult.planName }}
+    </p>
+    <p>Copay: {{ eligibilityResult.copayAmount | number: '1.2-2' }}</p>
+    <p *ngIf="eligibilityResult.payerMessage">{{ eligibilityResult.payerMessage }}</p>
+  </div>
+</div>

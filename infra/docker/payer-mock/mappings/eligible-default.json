@@ -1,0 +1,15 @@
+{
+  "priority": 10,
+  "request": {
+    "method": "POST",
+    "urlPath": "/ws",
+    "headers": {
+      "SOAPAction": { "contains": "CheckEligibility" }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": { "Content-Type": "text/xml;charset=UTF-8" },
+    "bodyFileName": "eligible-response.xml"
+  }
+}

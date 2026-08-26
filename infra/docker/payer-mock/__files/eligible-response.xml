@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <checkEligibilityResponse xmlns="http://payer.example.com/eligibility/v1">
+      <eligible>true</eligible>
+      <planName>Gold PPO 500</planName>
+      <copayAmount>25.00</copayAmount>
+      <payerMessage>Active coverage confirmed (simulated payer-mock response).</payerMessage>
+    </checkEligibilityResponse>
+  </soap:Body>
+</soap:Envelope>

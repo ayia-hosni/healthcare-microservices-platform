@@ -36,6 +36,9 @@ dist/
 # Docker
 docker-data/
 
+# Native local run (infra/native/run.sh) — logs, PIDs, Kafka/MinIO data dirs
+.native-run/
+
 # Terraform
 **/.terraform/
 *.tfstate
@@ -45,3 +48,6 @@ crash.log
 crash.*.log
 **/terraform.tfvars
 !**/terraform.tfvars.example
+
+PROGRESS.md
+frontend/public/interactive_healthcare_dashboard.html

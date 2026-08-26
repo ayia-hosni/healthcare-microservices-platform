@@ -70,6 +70,13 @@ Rebuilding after a code change: re-run the same script (Docker's cache makes unc
 services nearly instant), or build+load just the one service you changed and
 `kubectl -n healthcare-platform rollout restart deployment/<name>`.
 
+### GitOps instead of manual `kubectl apply -k`
+
+`infra/argocd/` wires this same `overlays/dev` output up to ArgoCD instead — see
+`infra/argocd/README.md` and [ADR-0005](../../docs/adr/0005-gitops-with-argocd.md). It
+still needs images built+loaded into minikube first (the deploy script above); what it
+replaces is manually re-running `kubectl apply -k` for manifest-only changes.
+
 ### Startup order note
 
 There's no init-container gating on Postgres/Kafka being ready — the 9 services will start,

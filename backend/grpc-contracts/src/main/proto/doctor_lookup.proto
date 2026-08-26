@@ -10,6 +10,8 @@ option java_outer_classname = "DoctorLookupProto";
 // doctorId before booking (see AppointmentService.book). Deliberately minimal — not a
 // substitute for doctor-service's REST API, just what a caller needs to fail fast on a
 // bad id instead of silently persisting an appointment for a doctor that doesn't exist.
+// Stays exactly this narrow per ADR-0004: a broader read shape lives in DoctorDirectory
+// (doctor_directory.proto) instead of being folded into this one.
 service DoctorLookup {
   rpc GetDoctor (DoctorLookupRequest) returns (DoctorLookupResponse);
 }

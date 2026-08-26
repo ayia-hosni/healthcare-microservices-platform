@@ -15,6 +15,10 @@ export class AppointmentService {
     return this.http.get<AppointmentResponse>(`/api/v1/appointments/${id}`);
   }
 
+  getByPatientId(patientId: string): Observable<AppointmentResponse[]> {
+    return this.http.get<AppointmentResponse[]>('/api/v1/appointments', { params: { patientId } });
+  }
+
   cancel(id: string, reason: string): Observable<AppointmentResponse> {
     return this.http.post<AppointmentResponse>(`/api/v1/appointments/${id}/cancel`, { reason });
   }

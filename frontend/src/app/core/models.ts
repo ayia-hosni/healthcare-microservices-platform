@@ -74,3 +74,33 @@ export interface AppointmentResponse {
   scheduledEnd: string;
   status: AppointmentStatus;
 }
+
+export type InvoiceStatus = 'PENDING' | 'PAID' | 'PARTIALLY_PAID' | 'OVERDUE' | 'CANCELLED' | string;
+
+export interface InvoiceResponse {
+  id: string;
+  patientId: string;
+  appointmentId: string;
+  amount: number;
+  currency: string;
+  status: InvoiceStatus;
+  dueDate: string;
+}
+
+export interface PaymentRequest {
+  amount: number;
+  paymentMethod: string;
+}
+
+export interface EligibilityRequest {
+  memberId: string;
+  payerId: string;
+  dateOfBirth: string;
+}
+
+export interface EligibilityResponse {
+  eligible: boolean;
+  planName: string;
+  copayAmount: number;
+  payerMessage: string;
+}

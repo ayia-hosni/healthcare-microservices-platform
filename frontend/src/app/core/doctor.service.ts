@@ -7,6 +7,10 @@ import { DoctorResponse } from './models';
 export class DoctorService {
   constructor(private http: HttpClient) {}
 
+  findAll(): Observable<DoctorResponse[]> {
+    return this.http.get<DoctorResponse[]>('/api/v1/doctors');
+  }
+
   getById(id: string): Observable<DoctorResponse> {
     return this.http.get<DoctorResponse>(`/api/v1/doctors/${id}`);
   }

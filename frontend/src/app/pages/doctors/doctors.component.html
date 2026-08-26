@@ -1,35 +1,44 @@
-<div class="card">
-  <h1>Find a Doctor</h1>
-  <form (ngSubmit)="search()" class="inline-form">
-    <label>
-      Specialty
-      <input type="text" name="specialty" [(ngModel)]="specialty" placeholder="Cardiology" required />
-    </label>
-    <button type="submit" [disabled]="loading">{{ loading ? 'Searching…' : 'Search' }}</button>
-  </form>
+<h2 class="header-title">Doctors</h2>
 
-  <p class="error" *ngIf="error">{{ error }}</p>
+<div class="toolbar">
+  <div class="toolbar-left">
+    <form (ngSubmit)="search()" class="search-box">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input type="text" name="specialty" [(ngModel)]="specialty" placeholder="Search by specialty…" />
+    </form>
+    <button type="button" (click)="browseAll()" [disabled]="loading">
+      <i class="fa-solid fa-rotate-left"></i> Show all
+    </button>
+  </div>
+  <button type="submit" class="create-btn" (click)="search()" [disabled]="loading || !specialty.trim()">
+    <i class="fa-solid fa-magnifying-glass"></i> Search
+  </button>
+</div>
 
-  <table class="data-table" *ngIf="results.length">
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Specialty</th>
-        <th>Department</th>
-        <th>Doctor ID</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let doctor of results">
-        <td>{{ doctor.firstName }} {{ doctor.lastName }}</td>
-        <td>{{ doctor.specialty }}</td>
-        <td>{{ doctor.departmentName }}</td>
-        <td><code>{{ doctor.id }}</code></td>
-      </tr>
-    </tbody>
-  </table>
+<p class="error" *ngIf="error">{{ error }}</p>
+<p class="muted" *ngIf="loading">Loading…</p>
 
-  <p class="muted" *ngIf="searched && !loading && !results.length && !error">
-    No doctors found for "{{ specialty }}".
-  </p>
+<div class="cards-grid" *ngIf="!loading && results.length">
+  <div class="entity-card" *ngFor="let doctor of results">
+    <div class="entity-header">
+      <div class="entity-avatar">{{ initials(doctor) }}</div>
+      <div class="entity-info">
+        <h4>Dr. {{ doctor.firstName }} {{ doctor.lastName }}</h4>
+        <p>{{ doctor.specialty }}</p>
+      </div>
+    </div>
+    <p class="muted" style="margin: 0;">{{ doctor.departmentName }}</p>
+    <div class="entity-footer">
+      <code>{{ doctor.id.slice(0, 8) }}…</code>
+      <a [routerLink]="['/appointments']" [queryParams]="{ doctorId: doctor.id }">
+        <button type="button">Book</button>
+      </a>
+    </div>
+  </div>
+</div>
+
+<div class="empty-state" *ngIf="!loading && !results.length">
+  <i class="fa-solid fa-user-doctor"></i>
+  <p *ngIf="searched">No doctors found for "{{ specialty }}".</p>
+  <p *ngIf="!searched">No doctors in the system yet.</p>
 </div>

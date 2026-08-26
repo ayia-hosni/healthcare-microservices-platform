@@ -5,6 +5,8 @@ import com.healthplatform.gateway.dto.AppointmentDto;
 import com.healthplatform.gateway.dto.BookAppointmentInput;
 import com.healthplatform.gateway.dto.DoctorDto;
 import com.healthplatform.gateway.dto.PatientDto;
+import com.healthplatform.gateway.grpc.DoctorLookupGrpcClient;
+import com.healthplatform.gateway.grpc.PatientLookupGrpcClient;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.ContextValue;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
@@ -18,14 +20,15 @@ import org.springframework.web.client.RestClient;
 public class AppointmentDataFetcher {
 
     private final RestClient appointmentServiceClient;
-    private final RestClient patientServiceClient;
-    private final RestClient doctorServiceClient;
+    private final PatientLookupGrpcClient patientLookupGrpcClient;
+    private final DoctorLookupGrpcClient doctorLookupGrpcClient;
 
-    public AppointmentDataFetcher(RestClient appointmentServiceClient, RestClient patientServiceClient,
-                                   RestClient doctorServiceClient) {
+    public AppointmentDataFetcher(RestClient appointmentServiceClient,
+                                   PatientLookupGrpcClient patientLookupGrpcClient,
+                                   DoctorLookupGrpcClient doctorLookupGrpcClient) {
         this.appointmentServiceClient = appointmentServiceClient;
-        this.patientServiceClient = patientServiceClient;
-        this.doctorServiceClient = doctorServiceClient;
+        this.patientLookupGrpcClient = patientLookupGrpcClient;
+        this.doctorLookupGrpcClient = doctorLookupGrpcClient;
     }
 
     @QueryMapping
@@ -54,21 +57,19 @@ public class AppointmentDataFetcher {
     }
 
     /**
-     * Resolved on demand, per-query, by calling out to patient-service — the actual
+     * Resolved on demand, per-query, via a gRPC call to patient-service — the actual
      * aggregation value of the gateway: a client asking for `appointment { patient { ... } }`
      * gets one round trip instead of two. Not batched (no DataLoader) — fine at this schema's
      * current shape (single appointment per query, no list-of-appointments field yet); would
      * be the first thing to add if a list query is introduced later.
      */
     @SchemaMapping(typeName = "Appointment", field = "patient")
-    public PatientDto patient(AppointmentDto appointment,
-                               @ContextValue(name = AuthHeaderInterceptor.AUTHORIZATION_CONTEXT_KEY, required = false) String authorization) {
-        return PatientDataFetcher.fetchPatient(patientServiceClient, appointment.patientId().toString(), authorization);
+    public PatientDto patient(AppointmentDto appointment) {
+        return patientLookupGrpcClient.fetch(appointment.patientId().toString());
     }
 
     @SchemaMapping(typeName = "Appointment", field = "doctor")
-    public DoctorDto doctor(AppointmentDto appointment,
-                             @ContextValue(name = AuthHeaderInterceptor.AUTHORIZATION_CONTEXT_KEY, required = false) String authorization) {
-        return DoctorDataFetcher.fetchDoctor(doctorServiceClient, appointment.doctorId().toString(), authorization);
+    public DoctorDto doctor(AppointmentDto appointment) {
+        return doctorLookupGrpcClient.fetch(appointment.doctorId().toString());
     }
 }

@@ -1,7 +1,59 @@
-<div class="card">
-  <h1>Welcome{{ auth.currentUser()?.email ? ', ' + auth.currentUser()?.email : '' }}</h1>
-  <p class="muted">Roles: {{ auth.currentUser()?.roles?.join(', ') }}</p>
+<h2 class="header-title">Dashboard</h2>
 
+<div class="dashboard-grid">
+  <div class="stat-card">
+    <div class="stat-icon primary"><i class="fa-regular fa-calendar-check"></i></div>
+    <div class="stat-info">
+      <h4>{{ appointmentsLoading ? '—' : appointments.length }}</h4>
+      <p>Total Appointments</p>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon warning"><i class="fa-solid fa-clock-rotate-left"></i></div>
+    <div class="stat-info">
+      <h4>{{ appointmentsLoading ? '—' : upcomingCount }}</h4>
+      <p>Upcoming (Scheduled)</p>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon primary"><i class="fa-solid fa-user-doctor"></i></div>
+    <div class="stat-info">
+      <h4>{{ doctorCount }}</h4>
+      <p>Doctors Available</p>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon primary"><i class="fa-solid fa-hospital-user"></i></div>
+    <div class="stat-info">
+      <h4>{{ auth.currentUser()?.roles?.join(', ') || '—' }}</h4>
+      <p>Account Role</p>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h1>Recent Appointments</h1>
+
+  <p class="muted" *ngIf="appointmentsLoading">Loading…</p>
+
+  <div class="activity-list" *ngIf="!appointmentsLoading && recentAppointments.length">
+    <div class="activity-row" *ngFor="let appt of recentAppointments">
+      <div [class]="statusDotClass(appt.status)"></div>
+      <p>
+        Appointment with doctor <code>{{ appt.doctorId.slice(0, 8) }}…</code> —
+        <span class="status" [class]="appt.status.toLowerCase()">{{ appt.status }}</span>
+      </p>
+      <time>{{ appt.scheduledStart | date: 'MMM d, y, h:mm a' }}</time>
+    </div>
+  </div>
+
+  <p class="muted" *ngIf="!appointmentsLoading && !recentAppointments.length">
+    No appointments yet — book one from the Appointments page.
+  </p>
+</div>
+
+<div class="card">
+  <h1>Quick Links</h1>
   <div class="tile-grid">
     <a class="tile" routerLink="/profile">
       <h2>My Profile</h2>

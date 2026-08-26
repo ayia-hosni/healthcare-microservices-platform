@@ -1,0 +1,105 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+  - datastores/postgres.yaml
+  - datastores/redis.yaml
+  - datastores/zookeeper.yaml
+  - datastores/kafka.yaml
+  - datastores/rabbitmq.yaml
+  - datastores/minio.yaml
+
+# Real AKS cluster, but still the 4-vCPU POC quota (see infra/terraform/envs/dev/variables.tf) —
+# 9 services + graphql-gateway + frontend + 6 in-cluster datastores at base's real replicas: 2
+# doesn't fit. Pinned to 1 for capacity only; base's real per-pod resource requests/limits and
+# probe timings are left untouched (see the deliberately-absent dev-resources.yaml/
+# relaxed-probes.yaml patches below).
+replicas:
+  - name: identity-service
+    count: 1
+  - name: patient-service
+    count: 1
+  - name: doctor-service
+    count: 1
+  - name: appointment-service
+    count: 1
+  - name: emr-service
+    count: 1
+  - name: billing-service
+    count: 1
+  - name: notification-service
+    count: 1
+  - name: audit-service
+    count: 1
+  - name: analytics-service
+    count: 1
+  - name: graphql-gateway
+    count: 1
+  - name: frontend
+    count: 1
+
+# newName/newTag are placeholders so this file stays kustomize-buildable as committed.
+# .github/workflows/ci.yml's deploy job overwrites both via `kustomize edit set image` before
+# `kubectl apply -k .`, pointing at ACR with the git-sha tag actually built that run.
+images:
+  - name: healthcare-platform/identity-service
+    newName: PLACEHOLDER_ACR/healthcare-platform/identity-service
+    newTag: PLACEHOLDER_TAG
+  - name: healthcare-platform/patient-service
+    newName: PLACEHOLDER_ACR/healthcare-platform/patient-service
+    newTag: PLACEHOLDER_TAG
+  - name: healthcare-platform/doctor-service
+    newName: PLACEHOLDER_ACR/healthcare-platform/doctor-service
+    newTag: PLACEHOLDER_TAG
+  - name: healthcare-platform/appointment-service
+    newName: PLACEHOLDER_ACR/healthcare-platform/appointment-service
+    newTag: PLACEHOLDER_TAG
+  - name: healthcare-platform/emr-service
+    newName: PLACEHOLDER_ACR/healthcare-platform/emr-service
+    newTag: PLACEHOLDER_TAG
+  - name: healthcare-platform/billing-service
+    newName: PLACEHOLDER_ACR/healthcare-platform/billing-service
+    newTag: PLACEHOLDER_TAG
+  - name: healthcare-platform/notification-service
+    newName: PLACEHOLDER_ACR/healthcare-platform/notification-service
+    newTag: PLACEHOLDER_TAG
+  - name: healthcare-platform/audit-service
+    newName: PLACEHOLDER_ACR/healthcare-platform/audit-service
+    newTag: PLACEHOLDER_TAG
+  - name: healthcare-platform/analytics-service
+    newName: PLACEHOLDER_ACR/healthcare-platform/analytics-service
+    newTag: PLACEHOLDER_TAG
+  - name: healthcare-platform/graphql-gateway
+    newName: PLACEHOLDER_ACR/healthcare-platform/graphql-gateway
+    newTag: PLACEHOLDER_TAG
+  - name: healthcare-platform/frontend
+    newName: PLACEHOLDER_ACR/healthcare-platform/frontend
+    newTag: PLACEHOLDER_TAG
+
+patches:
+  # Every app service's application.yml hardcodes Kafka security.protocol: SASL_SSL against a
+  # truststore file this overlay doesn't provision (no cert infra for a self-hosted broker on
+  # AKS, same gap as dev). datastores/kafka.yaml runs a plain PLAINTEXT broker instead.
+  - path: patches/kafka-plaintext.yaml
+    target: { kind: Deployment, name: identity-service }
+  - path: patches/kafka-plaintext.yaml
+    target: { kind: Deployment, name: patient-service }
+  - path: patches/kafka-plaintext.yaml
+    target: { kind: Deployment, name: doctor-service }
+  - path: patches/kafka-plaintext.yaml
+    target: { kind: Deployment, name: appointment-service }
+  - path: patches/kafka-plaintext.yaml
+    target: { kind: Deployment, name: emr-service }
+  - path: patches/kafka-plaintext.yaml
+    target: { kind: Deployment, name: billing-service }
+  - path: patches/kafka-plaintext.yaml
+    target: { kind: Deployment, name: notification-service }
+  - path: patches/kafka-plaintext.yaml
+    target: { kind: Deployment, name: audit-service }
+  - path: patches/kafka-plaintext.yaml
+    target: { kind: Deployment, name: analytics-service }
+
+  # analytics-service's Quartz "jdbc" job store needs QRTZ_* tables no script in this repo
+  # creates (see application.yml's comment) — same gap on AKS as on dev's Postgres.
+  - path: patches/quartz-memory.yaml
+    target: { kind: Deployment, name: analytics-service }

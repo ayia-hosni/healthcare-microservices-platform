@@ -42,6 +42,24 @@ app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:https://app.example-health.com}
 
+# External payer eligibility check (PayerEligibilityClient) — see
+# docs/adr/0003-soap-payer-eligibility-integration.md. Default points at nothing real; every
+# environment overrides it (docker-compose/k8s dev overlay -> the payer-mock WireMock stub,
+# a real deployment -> the actual trading partner's endpoint).
+payer:
+  eligibility:
+    url: ${PAYER_ELIGIBILITY_URL:http://localhost:9091/ws}
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      payerEligibility:
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 15s
+        permitted-number-of-calls-in-half-open-state: 3
+
 management:
   endpoints:
     web:

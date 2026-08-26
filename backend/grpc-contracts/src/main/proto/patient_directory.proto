@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package com.healthplatform.common.grpc;
+
+option java_package = "com.healthplatform.common.grpc";
+option java_multiple_files = true;
+option java_outer_classname = "PatientDirectoryProto";
+
+// Wider read surface than PatientLookup (patient_lookup.proto), added per ADR-0004 for
+// callers that need the full patient record rather than an existence check — today that's
+// graphql-gateway's `patient` field. Deliberately a separate service rather than widening
+// PatientLookup: one contract, one purpose, per this repo's own precedent (ADR-0003).
+service PatientDirectory {
+  rpc GetPatient (PatientDirectoryRequest) returns (PatientDirectoryResponse);
+}
+
+message PatientDirectoryRequest {
+  string patient_id = 1;
+}
+
+message PatientDirectoryResponse {
+  bool exists = 1;
+  string id = 2;
+  string first_name = 3;
+  string last_name = 4;
+  string date_of_birth = 5;
+  string email = 6;
+  string phone_number = 7;
+}
