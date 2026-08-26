@@ -3,6 +3,14 @@ x-common-env: &common-env
   KAFKA_BOOTSTRAP_SERVERS: kafka:9092
   REDIS_HOST: redis
   REDIS_PORT: 6379
+  # Each service's SecurityConfig defaults app.cors.allowed-origins to a placeholder
+  # production URL (https://app.example-health.com — see common's CorsProperties javadoc),
+  # not "*", by design: this platform is HIPAA-adjacent and shouldn't default permissive.
+  # The frontend dev server (npm start, see frontend/proxy.conf.json) runs at
+  # http://localhost:4200, so it needs an explicit local override or every browser request
+  # gets rejected with 403 before it reaches a controller — CORS is enforced here at the
+  # Spring Security layer, not just as a browser-side warning.
+  CORS_ALLOWED_ORIGINS: http://localhost:4200
 
 # Applied to all 9 Spring Boot services below. Each has its own Docker HEALTHCHECK (see its
 # Dockerfile) hitting /actuator/health, so no per-service healthcheck override is needed here.
@@ -111,14 +119,31 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: BROKER
       KAFKA_SASL_ENABLED_MECHANISMS: PLAIN
       KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: PLAIN
+      # KAFKA_SSL_KEYSTORE_FILENAME/_CREDENTIALS alone do NOT get the image's configure
+      # script to derive ssl.keystore.location — that derivation (like the truststore one
+      # below) only fires when KAFKA_SSL_CLIENT_AUTH is required/requested (mutual TLS),
+      # which we don't want (SASL handles client identity, not client certs). Without
+      # KAFKA_SSL_KEYSTORE_LOCATION set explicitly, the broker ends up with
+      # ssl.keystore.filename but no ssl.keystore.location at all — no keystore ever loads,
+      # and the broker's internal SslFactory self-test fails with the exact same misleading
+      # "No available authentication scheme" error as a genuine cert/truststore mismatch.
+      # Confirmed by inspecting the generated /etc/kafka/kafka.properties inside the
+      # container: ssl.keystore.location was simply absent.
+      KAFKA_SSL_KEYSTORE_LOCATION: /etc/kafka/secrets/kafka.broker.keystore.p12
       KAFKA_SSL_KEYSTORE_FILENAME: kafka.broker.keystore.p12
       KAFKA_SSL_KEYSTORE_CREDENTIALS: kafka_keystore_creds
       KAFKA_SSL_KEY_CREDENTIALS: kafka_key_creds
-      # NOT KAFKA_SSL_TRUSTSTORE_FILENAME/_CREDENTIALS: the image's configure script only
-      # derives ssl.truststore.location/password from those when KAFKA_SSL_CLIENT_AUTH is
-      # required/requested (mutual TLS). We don't want client-cert auth (SASL handles client
-      # identity), but the broker's internal SslFactory self-test still needs a truststore
-      # that trusts its own cert's issuer, so set the real properties directly instead.
+      # The *_CREDENTIALS file convention resolves ssl.keystore.password for the BROKER
+      # listener itself, but not for the separate broker-to-controller client channel
+      # (kafka.server.BrokerToControllerChannelManagerImpl, used even in ZooKeeper mode) —
+      # that path builds its SSL config straight from the top-level ssl.keystore.password
+      # property, which the creds-file mechanism never populates. Without this set
+      # explicitly, startup fails with "SSL key store is specified, but key store password
+      # is not specified" from that channel manager specifically, distinct from (and only
+      # visible after fixing) the missing-location failure above.
+      KAFKA_SSL_KEYSTORE_PASSWORD: changeit
+      # Same story for the truststore — set the real property directly rather than relying
+      # on KAFKA_SSL_TRUSTSTORE_FILENAME/_CREDENTIALS, which need KAFKA_SSL_CLIENT_AUTH too.
       KAFKA_SSL_TRUSTSTORE_LOCATION: /etc/kafka/secrets/kafka.truststore.p12
       KAFKA_SSL_TRUSTSTORE_PASSWORD: changeit
       # Both stores are PKCS12 (see generate-dev-certs.sh); Kafka defaults to JKS, which

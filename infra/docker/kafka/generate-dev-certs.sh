@@ -12,6 +12,15 @@
 # example for exactly that reason.
 #
 # Idempotent: skips generation if the certs directory already has output, unless -f is passed.
+#
+# PKCS12_COMPAT_OPTS below is a second, unrelated fix for the exact same symptom
+# ("SSLHandshakeException: no available authentication scheme" in the broker's own
+# SslFactory self-test): `keytool` from a JDK 17+ host defaults new PKCS12 stores to
+# PBEWithHmacSHA256AndAES_256 encryption, which the cp-kafka image's older bundled JRE
+# (Java 11) cannot read back — the broker fails before it ever gets to negotiate TLS with
+# a client. Forcing the legacy PBEWithSHA1AndDESede algorithm keeps the generated store
+# readable by any JDK likely to run this broker image, not just whichever JDK happens to
+# be on the host running this script.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -19,6 +28,11 @@ CERTS_DIR="$SCRIPT_DIR/certs"
 STORE_PASS="changeit"
 DAYS=3650
 FORCE=false
+PKCS12_COMPAT_OPTS=(
+  -J-Dkeystore.pkcs12.certProtectionAlgorithm=PBEWithSHA1AndDESede
+  -J-Dkeystore.pkcs12.keyProtectionAlgorithm=PBEWithSHA1AndDESede
+  -J-Dkeystore.pkcs12.macAlgorithm=HmacPBESHA1
+)
 
 if [[ "${1:-}" == "-f" ]]; then
   FORCE=true
@@ -38,7 +52,10 @@ keytool -genkeypair -alias kafka-broker -keystore kafka.broker.keystore.p12 \
   -storetype PKCS12 -keyalg RSA -keysize 2048 -sigalg SHA256withRSA -validity "$DAYS" \
   -storepass "$STORE_PASS" -keypass "$STORE_PASS" \
   -dname "CN=kafka,OU=dev,O=healthcare-platform" \
-  -ext SAN=dns:kafka,dns:localhost
+  -ext SAN=dns:kafka,dns:localhost \
+  -ext KeyUsage=digitalSignature,keyEncipherment,keyCertSign \
+  -ext ExtendedKeyUsage=serverAuth,clientAuth \
+  "${PKCS12_COMPAT_OPTS[@]}"
 
 echo "==> Exporting the broker's own cert"
 keytool -exportcert -alias kafka-broker -keystore kafka.broker.keystore.p12 \
@@ -46,7 +63,8 @@ keytool -exportcert -alias kafka-broker -keystore kafka.broker.keystore.p12 \
 
 echo "==> Building truststore that trusts exactly that cert"
 keytool -importcert -alias kafka-broker -keystore kafka.truststore.p12 \
-  -storetype PKCS12 -storepass "$STORE_PASS" -file kafka-broker.cert -noprompt
+  -storetype PKCS12 -storepass "$STORE_PASS" -file kafka-broker.cert -noprompt \
+  "${PKCS12_COMPAT_OPTS[@]}"
 
 rm -f kafka-broker.cert
 
