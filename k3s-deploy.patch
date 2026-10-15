@@ -1,0 +1,1369 @@
+diff --git a/.gitignore b/.gitignore
+index 0e0563c..03af4ba 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -49,4 +49,7 @@ crash.*.log
+ !**/terraform.tfvars.example
+ 
+ frontend/public/interactive_healthcare_dashboard.html
+-docs/adr/
+\ No newline at end of file
++docs/adr/
++# k3s deploy — generated on the VPS by infra/k8s/scripts/deploy-to-k3s.sh
++infra/k8s/overlays/k3s/secrets.env
++infra/k8s/.generated/
+diff --git a/infra/k8s/base/ingress.yaml b/infra/k8s/base/ingress.yaml
+index b8bac07..a598974 100644
+--- a/infra/k8s/base/ingress.yaml
++++ b/infra/k8s/base/ingress.yaml
+@@ -4,9 +4,9 @@
+ # (the frontend still calls these REST paths directly; it doesn't consume GraphQL yet).
+ #
+ # No `host:` restriction (catch-all) so this works locally without editing /etc/hosts.
+-# ingressClassName "nginx" matches minikube's built-in ingress-nginx addon and the default
+-# IngressClass of the standard ingress-nginx Helm chart on a real cluster — the manifest
+-# itself is portable even though no controller is installed for the AKS environment yet.
++# Overlays that need a real hostname and TLS (k3s) add them on top.
++# ingressClassName "nginx" matches minikube's ingress addon, the ingress-nginx chart the AKS
++# pipeline installs, and the F5 NGINX Ingress Controller the k3s overlay installs.
+ apiVersion: networking.k8s.io/v1
+ kind: Ingress
+ metadata:
+@@ -59,6 +59,34 @@ spec:
+                 name: billing-service
+                 port:
+                   number: 8086
++          - path: /api/v1/encounters
++            pathType: Prefix
++            backend:
++              service:
++                name: emr-service
++                port:
++                  number: 8085
++          - path: /fhir
++            pathType: Prefix
++            backend:
++              service:
++                name: emr-service
++                port:
++                  number: 8085
++          - path: /api/v1/audit
++            pathType: Prefix
++            backend:
++              service:
++                name: audit-service
++                port:
++                  number: 8088
++          - path: /api/v1/analytics
++            pathType: Prefix
++            backend:
++              service:
++                name: analytics-service
++                port:
++                  number: 8089
+           - path: /graphql
+             pathType: Prefix
+             backend:
+diff --git a/infra/k8s/overlays/k3s/README.md b/infra/k8s/overlays/k3s/README.md
+new file mode 100644
+index 0000000..aad52fc
+--- /dev/null
++++ b/infra/k8s/overlays/k3s/README.md
+@@ -0,0 +1,135 @@
++# k3s overlay — single VPS
++
++Runs the whole platform on one VPS: k3s, the F5 NGINX Ingress Controller on ports 80/443, and
++cert-manager issuing a Let's Encrypt certificate for your domain.
++
++```text
++Internet ──► :80/:443 (k3s ServiceLB)
++               │
++               ▼
++     NGINX Ingress Controller ── TLS (cert-manager / Let's Encrypt)
++               │
++     platform-gateway Ingress
++               ├── /api/v1/*, /fhir ──► Spring Boot services
++               ├── /graphql          ──► graphql-gateway
++               └── /                 ──► frontend (nginx, SPA)
++                                           │
++                       Postgres · Redis · Kafka · RabbitMQ · MinIO (in-cluster)
++```
++
++**Why not ingress-nginx?** The community `kubernetes/ingress-nginx` project was retired in
++March 2026 and no longer receives security fixes. This overlay uses NGINX's own controller
++(`nginx/kubernetes-ingress`), which reads the same `Ingress` resources. Its annotations are
++`nginx.org/*`, not `nginx.ingress.kubernetes.io/*`.
++
++## Requirements
++
++- Ubuntu 22.04/24.04 VPS, **4 vCPU / 8 GB RAM / 40 GB disk** minimum. Images are built on the
++  box, and the Maven build cache takes several GB.
++- A DNS **A record** for your domain pointing at the VPS. With no domain, `<VPS-IP>.sslip.io`
++  works.
++- Nothing else listening on ports 80/443. Remove any host nginx/apache first.
++- Docker, used only to build images: `curl -fsSL https://get.docker.com | sh`
++
++Firewall (if using ufw). Don't expose 6443 publicly:
++
++```bash
++ufw allow 22/tcp && ufw allow 80/tcp && ufw allow 443/tcp
++ufw allow from 10.42.0.0/16 to any   # k3s pods
++ufw allow from 10.43.0.0/16 to any   # k3s services
++ufw enable
++```
++
++## Deploy
++
++```bash
++git clone https://github.com/ayia-hosni/healthcare-microservices-platform.git
++cd healthcare-microservices-platform
++sudo DOMAIN=health.example.com ACME_EMAIL=you@example.com ./infra/k8s/scripts/deploy-to-k3s.sh
++```
++
++The script installs k3s with Traefik disabled, then installs the NGINX Ingress Controller and
++cert-manager through k3s's built-in Helm controller (`platform/`). It generates `secrets.env`
++with random passwords, builds all 11 images, imports them into k3s, and applies this overlay.
++
++The first run takes 20–30 minutes, mostly Maven. Use `ACME_STAGING=1` on the first run if
++you're still testing DNS, so you don't hit Let's Encrypt rate limits.
++
++**Back up `secrets.env`.** Postgres creates its roles with those passwords on first boot.
++Losing the file means losing database access.
++
++## Redeploy
++
++```bash
++git pull
++sudo DOMAIN=health.example.com ACME_EMAIL=you@example.com ./infra/k8s/scripts/deploy-to-k3s.sh
++```
++
++Images are tagged with the git SHA, so only changed services roll. Uncommitted changes get a
++`-dirty-<timestamp>` tag.
++
++### Building on another machine
++
++Use this if the VPS is too small to build while running. Check out the same commit on both
++sides:
++
++```bash
++# local — add --platform linux/amd64 to each build if you're on Apple Silicon
++TAG=$(git rev-parse --short HEAD)
++for s in identity-service patient-service doctor-service appointment-service emr-service \
++         billing-service notification-service audit-service analytics-service graphql-gateway; do
++  docker build -t healthcare-platform/$s:$TAG -f backend/$s/Dockerfile backend
++done
++docker build -t healthcare-platform/frontend:$TAG frontend
++docker save $(docker images --format '{{.Repository}}:{{.Tag}}' | grep "^healthcare-platform/.*:$TAG$") \
++  | ssh root@VPS 'cat > /tmp/hp.tar && k3s ctr images import /tmp/hp.tar && rm /tmp/hp.tar'
++
++# VPS
++sudo SKIP_BUILD=1 IMAGE_TAG=<TAG> DOMAIN=... ACME_EMAIL=... ./infra/k8s/scripts/deploy-to-k3s.sh
++```
++
++## Operations
++
++```bash
++export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
++kubectl -n healthcare-platform get pods
++kubectl -n healthcare-platform logs deploy/appointment-service -f
++kubectl -n healthcare-platform describe certificate platform-tls     # TLS issuance status
++kubectl -n nginx-ingress logs deploy/nginx-ingress-controller        # routing / 404s
++```
++
++Switching from staging to a real certificate:
++
++```bash
++kubectl -n healthcare-platform delete certificate platform-tls
++kubectl -n healthcare-platform delete secret platform-tls
++# re-run the deploy script without ACME_STAGING
++```
++
++After editing `secrets.env`, re-run the script, then
++`kubectl -n healthcare-platform rollout restart deployment`. Pods don't pick up Secret changes
++on their own.
++
++## What this overlay changes vs. dev
++
++| | dev (Minikube) | k3s (VPS) |
++|---|---|---|
++| Ingress controller | community ingress-nginx addon | F5 NGINX Ingress Controller |
++| TLS | none | Let's Encrypt via cert-manager |
++| Ingress host | catch-all | your `DOMAIN` |
++| Secrets | dev values committed in Git | generated on the VPS, gitignored |
++| Postgres / MinIO creds | hardcoded | from `platform-secrets` |
++| MinIO storage | ephemeral | 10Gi PVC |
++| Postgres storage | 1Gi PVC | 10Gi PVC |
++| Image tags | `:latest` | git SHA |
++
++Shared with dev: PLAINTEXT Kafka, in-memory Quartz, payer-mock, one replica per workload.
++
++## Not covered
++
++- **Backups.** The PVCs live under `/var/lib/rancher/k3s/storage` on the VPS disk. Schedule
++  `pg_dumpall` (via `kubectl exec`) and copy the MinIO bucket off the box.
++- **Kafka, Redis and RabbitMQ are not persistent.** A pod restart drops in-flight
++  messages. Domain events stay safe in each service's outbox table until relayed.
++- **Real patient data.** A single VPS with self-hosted datastores is not a HIPAA-ready
++  setup. Treat it as a demo environment.
+diff --git a/infra/k8s/overlays/k3s/datastores/kafka.yaml b/infra/k8s/overlays/k3s/datastores/kafka.yaml
+new file mode 100644
+index 0000000..8b9c9c9
+--- /dev/null
++++ b/infra/k8s/overlays/k3s/datastores/kafka.yaml
+@@ -0,0 +1,64 @@
++# Dev-only, deliberately simplified. docker-compose's Kafka runs SASL_SSL with a throwaway
++# dev CA (see infra/docker/kafka/) — replicating that cert/JAAS machinery in-cluster is a lot
++# of moving parts for a local dev cluster, so this broker is plain PLAINTEXT instead. The
++# app-side security.protocol override that pairs with this lives in
++# ../patches/kafka-plaintext.yaml.
++apiVersion: apps/v1
++kind: Deployment
++metadata:
++  name: kafka
++  namespace: healthcare-platform
++  labels:
++    app: kafka
++spec:
++  replicas: 1
++  selector:
++    matchLabels:
++      app: kafka
++  template:
++    metadata:
++      labels:
++        app: kafka
++    spec:
++      # Kubernetes auto-injects a KAFKA_PORT=tcp://<clusterIP>:9092 env var into every pod in
++      # this namespace once a Service named "kafka" exists (the legacy Docker-links-style
++      # "service link" behavior). cp-kafka's entrypoint treats KAFKA_PORT as the deprecated
++      # `port` config knob and tries to parse that URL as a bare port number, crashing
++      # instantly. This turns off that env var injection for this pod.
++      enableServiceLinks: false
++      containers:
++        - name: kafka
++          image: confluentinc/cp-kafka:7.6.0
++          ports:
++            - containerPort: 9092
++          env:
++            - name: KAFKA_BROKER_ID
++              value: "1"
++            - name: KAFKA_ZOOKEEPER_CONNECT
++              value: "zookeeper.healthcare-platform.svc.cluster.local:2181"
++            - name: KAFKA_ADVERTISED_LISTENERS
++              value: "PLAINTEXT://kafka.healthcare-platform.svc.cluster.local:9092"
++            - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
++              value: "PLAINTEXT:PLAINTEXT"
++            - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
++              value: "1"
++          resources:
++            requests:
++              cpu: "150m"
++              memory: "384Mi"
++            limits:
++              cpu: "1000m"
++              memory: "768Mi"
++---
++apiVersion: v1
++kind: Service
++metadata:
++  name: kafka
++  namespace: healthcare-platform
++spec:
++  selector:
++    app: kafka
++  ports:
++    - port: 9092
++      targetPort: 9092
++  type: ClusterIP
+diff --git a/infra/k8s/overlays/k3s/datastores/minio.yaml b/infra/k8s/overlays/k3s/datastores/minio.yaml
+new file mode 100644
+index 0000000..24bd8e0
+--- /dev/null
++++ b/infra/k8s/overlays/k3s/datastores/minio.yaml
+@@ -0,0 +1,91 @@
++# Single-node k3s MinIO for emr-service's clinical document attachments. Unlike the dev
++# overlay, root credentials come from platform-secrets (emr-service gets the same values via
++# patches/emr-minio-auth.yaml) and data lives on a PVC so uploads survive restarts.
++# ClusterIP only — never exposed through the Ingress.
++apiVersion: v1
++kind: PersistentVolumeClaim
++metadata:
++  name: minio-data
++  namespace: healthcare-platform
++spec:
++  accessModes: ["ReadWriteOnce"]
++  resources:
++    requests:
++      storage: 10Gi
++---
++apiVersion: apps/v1
++kind: Deployment
++metadata:
++  name: minio
++  namespace: healthcare-platform
++  labels:
++    app: minio
++spec:
++  replicas: 1
++  strategy:
++    type: Recreate
++  selector:
++    matchLabels:
++      app: minio
++  template:
++    metadata:
++      labels:
++        app: minio
++    spec:
++      enableServiceLinks: false
++      containers:
++        - name: minio
++          image: minio/minio:latest
++          imagePullPolicy: IfNotPresent
++          args: ["server", "/data", "--console-address", ":9001"]
++          ports:
++            - containerPort: 9000
++            - containerPort: 9001
++          env:
++            - name: MINIO_ROOT_USER
++              valueFrom:
++                secretKeyRef:
++                  name: platform-secrets
++                  key: MINIO_ROOT_USER
++            - name: MINIO_ROOT_PASSWORD
++              valueFrom:
++                secretKeyRef:
++                  name: platform-secrets
++                  key: MINIO_ROOT_PASSWORD
++          volumeMounts:
++            - name: data
++              mountPath: /data
++          readinessProbe:
++            httpGet:
++              path: /minio/health/ready
++              port: 9000
++            initialDelaySeconds: 5
++            periodSeconds: 10
++          resources:
++            requests:
++              cpu: "50m"
++              memory: "160Mi"
++            limits:
++              cpu: "500m"
++              memory: "512Mi"
++      volumes:
++        - name: data
++          persistentVolumeClaim:
++            claimName: minio-data
++---
++apiVersion: v1
++kind: Service
++metadata:
++  name: minio
++  namespace: healthcare-platform
++spec:
++  selector:
++    app: minio
++  ports:
++    - name: api
++      port: 9000
++      targetPort: 9000
++    - name: console
++      port: 9001
++      targetPort: 9001
++  type: ClusterIP
+diff --git a/infra/k8s/overlays/k3s/datastores/payer-mock.yaml b/infra/k8s/overlays/k3s/datastores/payer-mock.yaml
+new file mode 100644
+index 0000000..1fa5afd
+--- /dev/null
++++ b/infra/k8s/overlays/k3s/datastores/payer-mock.yaml
+@@ -0,0 +1,138 @@
++# Stand-in for the external insurance payer billing-service's PayerEligibilityClient calls —
++# see docs/adr/0003-soap-payer-eligibility-integration.md. Mapping/response files below are
++# the same content docker-compose.yml mounts directly from infra/docker/payer-mock/ — inlined
++# here rather than referenced by path (same pattern as postgres-initdb's copy of
++# infra/docker/init-multiple-dbs.sh) since kustomize's default load restrictions don't allow
++# a configMapGenerator to read files outside this kustomization's own directory tree.
++apiVersion: v1
++kind: ConfigMap
++metadata:
++  name: payer-mock-mappings
++  namespace: healthcare-platform
++data:
++  eligible-default.json: |
++    {
++      "priority": 10,
++      "request": {
++        "method": "POST",
++        "urlPath": "/ws",
++        "headers": {
++          "SOAPAction": { "contains": "CheckEligibility" }
++        }
++      },
++      "response": {
++        "status": 200,
++        "headers": { "Content-Type": "text/xml;charset=UTF-8" },
++        "bodyFileName": "eligible-response.xml"
++      }
++    }
++  ineligible-member.json: |
++    {
++      "priority": 1,
++      "request": {
++        "method": "POST",
++        "urlPath": "/ws",
++        "headers": {
++          "SOAPAction": { "contains": "CheckEligibility" }
++        },
++        "bodyPatterns": [
++          { "contains": "<memberId>MEMBER-INELIGIBLE</memberId>" }
++        ]
++      },
++      "response": {
++        "status": 200,
++        "headers": { "Content-Type": "text/xml;charset=UTF-8" },
++        "bodyFileName": "ineligible-response.xml"
++      }
++    }
++---
++apiVersion: v1
++kind: ConfigMap
++metadata:
++  name: payer-mock-files
++  namespace: healthcare-platform
++data:
++  eligible-response.xml: |
++    <?xml version="1.0" encoding="UTF-8"?>
++    <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
++      <soap:Body>
++        <checkEligibilityResponse xmlns="http://payer.example.com/eligibility/v1">
++          <eligible>true</eligible>
++          <planName>Gold PPO 500</planName>
++          <copayAmount>25.00</copayAmount>
++          <payerMessage>Active coverage confirmed (simulated payer-mock response).</payerMessage>
++        </checkEligibilityResponse>
++      </soap:Body>
++    </soap:Envelope>
++  ineligible-response.xml: |
++    <?xml version="1.0" encoding="UTF-8"?>
++    <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
++      <soap:Body>
++        <checkEligibilityResponse xmlns="http://payer.example.com/eligibility/v1">
++          <eligible>false</eligible>
++          <payerMessage>No active coverage found for this member (simulated payer-mock response).</payerMessage>
++        </checkEligibilityResponse>
++      </soap:Body>
++    </soap:Envelope>
++---
++apiVersion: apps/v1
++kind: Deployment
++metadata:
++  name: payer-mock
++  namespace: healthcare-platform
++  labels:
++    app: payer-mock
++spec:
++  replicas: 1
++  selector:
++    matchLabels:
++      app: payer-mock
++  template:
++    metadata:
++      labels:
++        app: payer-mock
++    spec:
++      enableServiceLinks: false
++      containers:
++        - name: payer-mock
++          image: wiremock/wiremock:3.9.1
++          ports:
++            - containerPort: 8080
++          volumeMounts:
++            - name: mappings
++              mountPath: /home/wiremock/mappings
++            - name: response-files
++              mountPath: /home/wiremock/__files
++          readinessProbe:
++            httpGet:
++              path: /__admin/mappings
++              port: 8080
++            initialDelaySeconds: 5
++            periodSeconds: 10
++          resources:
++            requests:
++              cpu: "50m"
++              memory: "128Mi"
++            limits:
++              cpu: "250m"
++              memory: "256Mi"
++      volumes:
++        - name: mappings
++          configMap:
++            name: payer-mock-mappings
++        - name: response-files
++          configMap:
++            name: payer-mock-files
++---
++apiVersion: v1
++kind: Service
++metadata:
++  name: payer-mock
++  namespace: healthcare-platform
++spec:
++  selector:
++    app: payer-mock
++  ports:
++    - port: 8080
++      targetPort: 8080
++  type: ClusterIP
+diff --git a/infra/k8s/overlays/k3s/datastores/postgres.yaml b/infra/k8s/overlays/k3s/datastores/postgres.yaml
+new file mode 100644
+index 0000000..2779b45
+--- /dev/null
++++ b/infra/k8s/overlays/k3s/datastores/postgres.yaml
+@@ -0,0 +1,163 @@
++# Single-node k3s Postgres. Same shape as the dev overlay, but passwords come from
++# platform-secrets (generated into ../secrets.env by deploy-to-k3s.sh) instead of being
++# hardcoded, and the volume is sized for real use. k3s's local-path provisioner backs the PVC
++# with a directory on the VPS disk.
++#
++# The init script only runs against an EMPTY data directory. Changing DB_PASSWORD after the
++# first boot does not change the roles' passwords — rotate them with ALTER ROLE, or wipe the
++# PVC on a throwaway install.
++apiVersion: v1
++kind: ConfigMap
++metadata:
++  name: postgres-initdb
++  namespace: healthcare-platform
++data:
++  # Same script infra/docker/init-multiple-dbs.sh runs for docker-compose: one database +
++  # owning user per microservice, all sharing platform-secrets' DB_PASSWORD.
++  01-init-multiple-dbs.sh: |
++    #!/usr/bin/env bash
++    set -euo pipefail
++
++    create_database_and_user() {
++    	local db=$1
++    	local user=$2
++    	local password=$3
++
++    	echo "Creating database '$db' owned by '$user'"
++    	psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" <<-EOSQL
++    		DO \$\$
++    		BEGIN
++    			IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '$user') THEN
++    				CREATE ROLE $user LOGIN PASSWORD '$password';
++    			END IF;
++    		END
++    		\$\$;
++    		SELECT 'CREATE DATABASE $db OWNER $user' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$db')\gexec
++    		GRANT ALL PRIVILEGES ON DATABASE $db TO $user;
++    	EOSQL
++
++    	psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$db" <<-EOSQL
++    		CREATE EXTENSION IF NOT EXISTS pgcrypto;
++    	EOSQL
++    }
++
++    if [ -n "${POSTGRES_MULTIPLE_DATABASES:-}" ]; then
++    	echo "Multiple database creation requested: $POSTGRES_MULTIPLE_DATABASES"
++    	IFS=',' read -ra ENTRIES <<< "$(echo "$POSTGRES_MULTIPLE_DATABASES" | tr -d '[:space:]')"
++    	for entry in "${ENTRIES[@]}"; do
++    		IFS=':' read -r db user password <<< "$entry"
++    		create_database_and_user "$db" "$user" "$password"
++    	done
++    	echo "Multiple databases created"
++    fi
++---
++apiVersion: v1
++kind: PersistentVolumeClaim
++metadata:
++  name: postgres-data
++  namespace: healthcare-platform
++spec:
++  accessModes: ["ReadWriteOnce"]
++  resources:
++    requests:
++      storage: 10Gi
++---
++apiVersion: apps/v1
++kind: Deployment
++metadata:
++  name: postgres
++  namespace: healthcare-platform
++  labels:
++    app: postgres
++spec:
++  replicas: 1
++  strategy:
++    type: Recreate
++  selector:
++    matchLabels:
++      app: postgres
++  template:
++    metadata:
++      labels:
++        app: postgres
++    spec:
++      enableServiceLinks: false
++      containers:
++        - name: postgres
++          image: postgres:16-alpine
++          ports:
++            - containerPort: 5432
++          env:
++            - name: POSTGRES_PASSWORD
++              valueFrom:
++                secretKeyRef:
++                  name: platform-secrets
++                  key: POSTGRES_SUPERUSER_PASSWORD
++            - name: DB_PASSWORD
++              valueFrom:
++                secretKeyRef:
++                  name: platform-secrets
++                  key: DB_PASSWORD
++            - name: PGDATA
++              value: /var/lib/postgresql/data/pgdata
++            # $(DB_PASSWORD) is expanded by the kubelet from the env var above. The init
++            # script splits on ':' and ',', so the password must not contain either (the
++            # generated hex passwords don't).
++            - name: POSTGRES_MULTIPLE_DATABASES
++              value: >-
++                identity_db:identity_user:$(DB_PASSWORD),
++                patient_db:patient_user:$(DB_PASSWORD),
++                doctor_db:doctor_user:$(DB_PASSWORD),
++                appointment_db:appointment_user:$(DB_PASSWORD),
++                emr_db:emr_user:$(DB_PASSWORD),
++                billing_db:billing_user:$(DB_PASSWORD),
++                notification_db:notification_user:$(DB_PASSWORD),
++                audit_db:audit_user:$(DB_PASSWORD),
++                analytics_db:analytics_user:$(DB_PASSWORD)
++          volumeMounts:
++            - name: data
++              mountPath: /var/lib/postgresql/data
++            - name: initdb
++              mountPath: /docker-entrypoint-initdb.d
++          readinessProbe:
++            exec:
++              command: ["pg_isready", "-U", "postgres"]
++            initialDelaySeconds: 10
++            periodSeconds: 5
++            timeoutSeconds: 5
++            failureThreshold: 6
++          livenessProbe:
++            exec:
++              command: ["pg_isready", "-U", "postgres"]
++            initialDelaySeconds: 30
++            periodSeconds: 15
++            timeoutSeconds: 5
++            failureThreshold: 6
++          resources:
++            requests:
++              cpu: "100m"
++              memory: "256Mi"
++            limits:
++              cpu: "1000m"
++              memory: "1Gi"
++      volumes:
++        - name: data
++          persistentVolumeClaim:
++            claimName: postgres-data
++        - name: initdb
++          configMap:
++            name: postgres-initdb
++            defaultMode: 0755
++---
++apiVersion: v1
++kind: Service
++metadata:
++  name: postgres
++  namespace: healthcare-platform
++spec:
++  selector:
++    app: postgres
++  ports:
++    - port: 5432
++      targetPort: 5432
++  type: ClusterIP
+diff --git a/infra/k8s/overlays/k3s/datastores/rabbitmq.yaml b/infra/k8s/overlays/k3s/datastores/rabbitmq.yaml
+new file mode 100644
+index 0000000..923c07c
+--- /dev/null
++++ b/infra/k8s/overlays/k3s/datastores/rabbitmq.yaml
+@@ -0,0 +1,62 @@
++# Dev-only. Credentials come from platform-secrets (RABBITMQ_USER/RABBITMQ_PASSWORD),
++# overridden to real dev values in ../secrets-dev.yaml so this server and
++# notification-service's client (base/notification-service.yaml) always agree.
++apiVersion: apps/v1
++kind: Deployment
++metadata:
++  name: rabbitmq
++  namespace: healthcare-platform
++  labels:
++    app: rabbitmq
++spec:
++  replicas: 1
++  selector:
++    matchLabels:
++      app: rabbitmq
++  template:
++    metadata:
++      labels:
++        app: rabbitmq
++    spec:
++      enableServiceLinks: false
++      containers:
++        - name: rabbitmq
++          image: rabbitmq:3.13-management-alpine
++          ports:
++            - containerPort: 5672
++            - containerPort: 15672
++          env:
++            - name: RABBITMQ_DEFAULT_USER
++              valueFrom:
++                secretKeyRef:
++                  name: platform-secrets
++                  key: RABBITMQ_USER
++            - name: RABBITMQ_DEFAULT_PASS
++              valueFrom:
++                secretKeyRef:
++                  name: platform-secrets
++                  key: RABBITMQ_PASSWORD
++          resources:
++            requests:
++              cpu: "50m"
++              memory: "160Mi"
++            limits:
++              cpu: "300m"
++              memory: "384Mi"
++---
++apiVersion: v1
++kind: Service
++metadata:
++  name: rabbitmq
++  namespace: healthcare-platform
++spec:
++  selector:
++    app: rabbitmq
++  ports:
++    - name: amqp
++      port: 5672
++      targetPort: 5672
++    - name: management
++      port: 15672
++      targetPort: 15672
++  type: ClusterIP
+diff --git a/infra/k8s/overlays/k3s/datastores/redis.yaml b/infra/k8s/overlays/k3s/datastores/redis.yaml
+new file mode 100644
+index 0000000..5ca9660
+--- /dev/null
++++ b/infra/k8s/overlays/k3s/datastores/redis.yaml
+@@ -0,0 +1,50 @@
++# Dev-only. Production would use a managed Redis instance (see REDIS_HOST in
++# infra/k8s/base/configmap.yaml, which already assumes a Service literally named "redis").
++apiVersion: apps/v1
++kind: Deployment
++metadata:
++  name: redis
++  namespace: healthcare-platform
++  labels:
++    app: redis
++spec:
++  replicas: 1
++  selector:
++    matchLabels:
++      app: redis
++  template:
++    metadata:
++      labels:
++        app: redis
++    spec:
++      enableServiceLinks: false
++      containers:
++        - name: redis
++          image: redis:7-alpine
++          ports:
++            - containerPort: 6379
++          readinessProbe:
++            exec:
++              command: ["redis-cli", "ping"]
++            initialDelaySeconds: 5
++            periodSeconds: 10
++          resources:
++            requests:
++              cpu: "50m"
++              memory: "64Mi"
++            limits:
++              cpu: "250m"
++              memory: "128Mi"
++---
++apiVersion: v1
++kind: Service
++metadata:
++  name: redis
++  namespace: healthcare-platform
++spec:
++  selector:
++    app: redis
++  ports:
++    - port: 6379
++      targetPort: 6379
++  type: ClusterIP
+diff --git a/infra/k8s/overlays/k3s/datastores/zookeeper.yaml b/infra/k8s/overlays/k3s/datastores/zookeeper.yaml
+new file mode 100644
+index 0000000..91f89ac
+--- /dev/null
++++ b/infra/k8s/overlays/k3s/datastores/zookeeper.yaml
+@@ -0,0 +1,49 @@
++# Dev-only, paired with kafka.yaml.
++apiVersion: apps/v1
++kind: Deployment
++metadata:
++  name: zookeeper
++  namespace: healthcare-platform
++  labels:
++    app: zookeeper
++spec:
++  replicas: 1
++  selector:
++    matchLabels:
++      app: zookeeper
++  template:
++    metadata:
++      labels:
++        app: zookeeper
++    spec:
++      enableServiceLinks: false
++      containers:
++        - name: zookeeper
++          image: confluentinc/cp-zookeeper:7.6.0
++          ports:
++            - containerPort: 2181
++          env:
++            - name: ZOOKEEPER_CLIENT_PORT
++              value: "2181"
++            - name: ZOOKEEPER_TICK_TIME
++              value: "2000"
++          resources:
++            requests:
++              cpu: "50m"
++              memory: "160Mi"
++            limits:
++              cpu: "300m"
++              memory: "384Mi"
++---
++apiVersion: v1
++kind: Service
++metadata:
++  name: zookeeper
++  namespace: healthcare-platform
++spec:
++  selector:
++    app: zookeeper
++  ports:
++    - port: 2181
++      targetPort: 2181
++  type: ClusterIP
+diff --git a/infra/k8s/overlays/k3s/kustomization.yaml b/infra/k8s/overlays/k3s/kustomization.yaml
+new file mode 100644
+index 0000000..bb64f49
+--- /dev/null
++++ b/infra/k8s/overlays/k3s/kustomization.yaml
+@@ -0,0 +1,99 @@
++# Single-node k3s on a VPS, fronted by the F5 NGINX Ingress Controller with Let's Encrypt TLS.
++# Don't apply this directly — infra/k8s/scripts/deploy-to-k3s.sh layers the per-deploy values
++# (image tag, domain, TLS host, CORS origin) on top via a generated kustomization in
++# infra/k8s/.generated/k3s/.
++# See README.md in this directory.
++apiVersion: kustomize.config.k8s.io/v1beta1
++kind: Kustomization
++resources:
++  - ../../base
++  - datastores/postgres.yaml
++  - datastores/redis.yaml
++  - datastores/zookeeper.yaml
++  - datastores/kafka.yaml
++  - datastores/rabbitmq.yaml
++  - datastores/minio.yaml
++  - datastores/payer-mock.yaml
++
++# One node, so one replica each.
++replicas:
++  - { name: identity-service, count: 1 }
++  - { name: patient-service, count: 1 }
++  - { name: doctor-service, count: 1 }
++  - { name: appointment-service, count: 1 }
++  - { name: emr-service, count: 1 }
++  - { name: billing-service, count: 1 }
++  - { name: notification-service, count: 1 }
++  - { name: audit-service, count: 1 }
++  - { name: analytics-service, count: 1 }
++  - { name: graphql-gateway, count: 1 }
++  - { name: frontend, count: 1 }
++
++# Real credentials, generated on the VPS by deploy-to-k3s.sh and never committed
++# (secrets.env is gitignored; secrets.env.example lists the keys). Replaces base's
++# placeholder Secret outright, so there's no apply-then-overwrite step like the AKS pipeline.
++secretGenerator:
++  - name: platform-secrets
++    namespace: healthcare-platform
++    behavior: replace
++    envs:
++      - secrets.env
++
++patches:
++  # Third-party payer endpoint -> in-cluster WireMock stub, same as dev.
++  - target: { kind: ConfigMap, name: platform-config }
++    patch: |-
++      apiVersion: v1
++      kind: ConfigMap
++      metadata:
++        name: platform-config
++      data:
++        PAYER_ELIGIBILITY_URL: "http://payer-mock.healthcare-platform.svc.cluster.local:8080/ws"
++
++  # F5 NGINX Ingress Controller annotations (nginx.org/*, not the retired community
++  # nginx.ingress.kubernetes.io/*):
++  #   - client-max-body-size matches emr-service's 25MB multipart limit (NGINX default is 1m).
++  #   - http01-edit-in-place makes cert-manager add the ACME challenge path to THIS Ingress.
++  #     Without it, cert-manager creates a second Ingress for the same host, and this
++  #     controller rejects it as a host collision — the challenge never gets routed.
++  #     Edit-in-place also makes cert-manager issue a temporary self-signed cert first, so the
++  #     controller's HTTP->HTTPS redirect works before the real cert exists.
++  - target: { kind: Ingress, name: platform-gateway }
++    patch: |-
++      apiVersion: networking.k8s.io/v1
++      kind: Ingress
++      metadata:
++        name: platform-gateway
++        annotations:
++          nginx.org/client-max-body-size: "25m"
++          cert-manager.io/cluster-issuer: letsencrypt
++          acme.cert-manager.io/http01-edit-in-place: "true"
++
++  # Images are built on the VPS and imported into k3s's containerd, never pulled.
++  - path: patches/image-pull-policy.yaml
++    target: { kind: Deployment, name: ".*-service|graphql-gateway|frontend" }
++
++  # Self-hosted PLAINTEXT Kafka, same gap and fix as dev/aks.
++  - path: patches/kafka-plaintext.yaml
++    target: { kind: Deployment, name: ".*-service" }
++
++  # No QRTZ_* tables provisioned, same as dev/aks.
++  - path: patches/quartz-memory.yaml
++    target: { kind: Deployment, name: analytics-service }
++
++  # Small VPSes have poor entropy; without this, JVM boot can stall for many minutes.
++  - path: patches/java-urandom.yaml
++    target: { kind: Deployment, name: ".*-service|graphql-gateway" }
++
++  - path: patches/vps-resources.yaml
++    target: { kind: Deployment, name: ".*-service|graphql-gateway" }
++
++  - path: patches/no-service-links.yaml
++    target: { kind: Deployment, name: ".*-service|graphql-gateway|frontend" }
++
++  # 10 JVMs cold-starting on a few vCPUs: base's 1s probe timeout kills healthy pods.
++  - path: patches/relaxed-probes.yaml
++    target: { kind: Deployment, name: ".*-service|graphql-gateway" }
++
++  - path: patches/emr-minio-auth.yaml
++    target: { kind: Deployment, name: emr-service }
+diff --git a/infra/k8s/overlays/k3s/patches/emr-minio-auth.yaml b/infra/k8s/overlays/k3s/patches/emr-minio-auth.yaml
+new file mode 100644
+index 0000000..dd43b07
+--- /dev/null
++++ b/infra/k8s/overlays/k3s/patches/emr-minio-auth.yaml
+@@ -0,0 +1,18 @@
++# emr-service falls back to minioadmin/minioadmin when these are unset (see its
++# application.yml). Point it at the same generated credentials the MinIO server uses.
++- op: add
++  path: /spec/template/spec/containers/0/env/-
++  value:
++    name: MINIO_ACCESS_KEY
++    valueFrom:
++      secretKeyRef:
++        name: platform-secrets
++        key: MINIO_ROOT_USER
++- op: add
++  path: /spec/template/spec/containers/0/env/-
++  value:
++    name: MINIO_SECRET_KEY
++    valueFrom:
++      secretKeyRef:
++        name: platform-secrets
++        key: MINIO_ROOT_PASSWORD
+diff --git a/infra/k8s/overlays/k3s/patches/image-pull-policy.yaml b/infra/k8s/overlays/k3s/patches/image-pull-policy.yaml
+new file mode 100644
+index 0000000..7f9c01c
+--- /dev/null
++++ b/infra/k8s/overlays/k3s/patches/image-pull-policy.yaml
+@@ -0,0 +1,3 @@
++- op: add
++  path: /spec/template/spec/containers/0/imagePullPolicy
++  value: IfNotPresent
+diff --git a/infra/k8s/overlays/k3s/patches/java-urandom.yaml b/infra/k8s/overlays/k3s/patches/java-urandom.yaml
+new file mode 100644
+index 0000000..94d0457
+--- /dev/null
++++ b/infra/k8s/overlays/k3s/patches/java-urandom.yaml
+@@ -0,0 +1,10 @@
++# Without this, SecureRandom (used by Spring Security's generated-password bean, JWT signing,
++# UUID generation, etc.) defaults to blocking /dev/random for entropy. In this dev cluster —
++# multiple JVMs starting cold at once, few hardware entropy sources — that blocks each service's
++# boot for 15-20+ minutes at the "Using generated security password" step. JAVA_TOOL_OPTIONS is
++# read automatically by the JVM at launch, so this doesn't require an image rebuild.
++- op: add
++  path: /spec/template/spec/containers/0/env/-
++  value:
++    name: JAVA_TOOL_OPTIONS
++    value: "-Djava.security.egd=file:/dev/./urandom"
+diff --git a/infra/k8s/overlays/k3s/patches/kafka-plaintext.yaml b/infra/k8s/overlays/k3s/patches/kafka-plaintext.yaml
+new file mode 100644
+index 0000000..9d203cb
+--- /dev/null
++++ b/infra/k8s/overlays/k3s/patches/kafka-plaintext.yaml
+@@ -0,0 +1,5 @@
++- op: add
++  path: /spec/template/spec/containers/0/env/-
++  value:
++    name: SPRING_KAFKA_PROPERTIES_SECURITY_PROTOCOL
++    value: PLAINTEXT
+diff --git a/infra/k8s/overlays/k3s/patches/no-service-links.yaml b/infra/k8s/overlays/k3s/patches/no-service-links.yaml
+new file mode 100644
+index 0000000..c63e642
+--- /dev/null
++++ b/infra/k8s/overlays/k3s/patches/no-service-links.yaml
+@@ -0,0 +1,3 @@
++- op: add
++  path: /spec/template/spec/enableServiceLinks
++  value: false
+diff --git a/infra/k8s/overlays/k3s/patches/quartz-memory.yaml b/infra/k8s/overlays/k3s/patches/quartz-memory.yaml
+new file mode 100644
+index 0000000..8ae52ef
+--- /dev/null
++++ b/infra/k8s/overlays/k3s/patches/quartz-memory.yaml
+@@ -0,0 +1,5 @@
++- op: add
++  path: /spec/template/spec/containers/0/env/-
++  value:
++    name: SPRING_QUARTZ_JOB_STORE_TYPE
++    value: memory
+diff --git a/infra/k8s/overlays/k3s/patches/relaxed-probes.yaml b/infra/k8s/overlays/k3s/patches/relaxed-probes.yaml
+new file mode 100644
+index 0000000..66ec084
+--- /dev/null
++++ b/infra/k8s/overlays/k3s/patches/relaxed-probes.yaml
+@@ -0,0 +1,12 @@
++- op: add
++  path: /spec/template/spec/containers/0/livenessProbe/timeoutSeconds
++  value: 5
++- op: add
++  path: /spec/template/spec/containers/0/livenessProbe/failureThreshold
++  value: 16
++- op: add
++  path: /spec/template/spec/containers/0/readinessProbe/timeoutSeconds
++  value: 5
++- op: add
++  path: /spec/template/spec/containers/0/readinessProbe/failureThreshold
++  value: 16
+diff --git a/infra/k8s/overlays/k3s/patches/vps-resources.yaml b/infra/k8s/overlays/k3s/patches/vps-resources.yaml
+new file mode 100644
+index 0000000..12b47f9
+--- /dev/null
++++ b/infra/k8s/overlays/k3s/patches/vps-resources.yaml
+@@ -0,0 +1,10 @@
++# Sized so all 10 JVM services + datastores fit a 4 vCPU / 8 GB VPS.
++- op: replace
++  path: /spec/template/spec/containers/0/resources
++  value:
++    requests:
++      cpu: "250m"
++      memory: "300Mi"
++    limits:
++      cpu: "2000m"
++      memory: "900Mi"
+diff --git a/infra/k8s/overlays/k3s/platform/cert-manager.yaml b/infra/k8s/overlays/k3s/platform/cert-manager.yaml
+new file mode 100644
+index 0000000..690d7be
+--- /dev/null
++++ b/infra/k8s/overlays/k3s/platform/cert-manager.yaml
+@@ -0,0 +1,16 @@
++# cert-manager for Let's Encrypt certificates on the platform Ingress. The ClusterIssuer is
++# created by deploy-to-k3s.sh once the webhook is up (it needs your ACME email).
++apiVersion: helm.cattle.io/v1
++kind: HelmChart
++metadata:
++  name: cert-manager
++  namespace: kube-system
++spec:
++  repo: https://charts.jetstack.io
++  chart: cert-manager
++  version: v1.21.2
++  targetNamespace: cert-manager
++  createNamespace: true
++  valuesContent: |-
++    crds:
++      enabled: true
+diff --git a/infra/k8s/overlays/k3s/platform/nginx-ingress.yaml b/infra/k8s/overlays/k3s/platform/nginx-ingress.yaml
+new file mode 100644
+index 0000000..28a0908
+--- /dev/null
++++ b/infra/k8s/overlays/k3s/platform/nginx-ingress.yaml
+@@ -0,0 +1,32 @@
++# F5 NGINX Ingress Controller, installed by k3s's built-in Helm controller (no helm CLI
++# needed). This is NGINX's own controller, not the community ingress-nginx project, which was
++# retired in March 2026 and no longer gets security fixes.
++#
++# Service type LoadBalancer is picked up by k3s's ServiceLB, which binds ports 80/443 on the
++# VPS itself. Requires k3s to be installed with --disable=traefik so those ports are free.
++apiVersion: helm.cattle.io/v1
++kind: HelmChart
++metadata:
++  name: nginx-ingress
++  namespace: kube-system
++spec:
++  repo: https://helm.nginx.com/stable
++  chart: nginx-ingress
++  version: 2.7.3 # controller 5.6.3
++  targetNamespace: nginx-ingress
++  createNamespace: true
++  valuesContent: |-
++    controller:
++      ingressClass:
++        name: nginx
++        create: true
++      service:
++        type: LoadBalancer
++        externalTrafficPolicy: Local
++      config:
++        entries:
++          server-tokens: "False"
++      resources:
++        requests:
++          cpu: 100m
++          memory: 128Mi
+diff --git a/infra/k8s/overlays/k3s/secrets.env.example b/infra/k8s/overlays/k3s/secrets.env.example
+new file mode 100644
+index 0000000..82c2614
+--- /dev/null
++++ b/infra/k8s/overlays/k3s/secrets.env.example
+@@ -0,0 +1,20 @@
++# Keys expected in secrets.env (gitignored). deploy-to-k3s.sh generates this file with random
++# values on first run — you only need to create it by hand if you want specific values.
++# Values must not contain ':' or ',' (Postgres init script splits on them).
++JWT_SECRET=
++DB_PASSWORD=
++POSTGRES_SUPERUSER_PASSWORD=
++RABBITMQ_USER=notification_service
++RABBITMQ_PASSWORD=
++MINIO_ROOT_USER=emr-minio
++MINIO_ROOT_PASSWORD=
++# Unused while Kafka runs PLAINTEXT, but application.yml still needs them to resolve.
++KAFKA_SASL_PASSWORD_IDENTITY=unused-kafka-is-plaintext
++KAFKA_SASL_PASSWORD_PATIENT=unused-kafka-is-plaintext
++KAFKA_SASL_PASSWORD_DOCTOR=unused-kafka-is-plaintext
++KAFKA_SASL_PASSWORD_APPOINTMENT=unused-kafka-is-plaintext
++KAFKA_SASL_PASSWORD_EMR=unused-kafka-is-plaintext
++KAFKA_SASL_PASSWORD_BILLING=unused-kafka-is-plaintext
++KAFKA_SASL_PASSWORD_NOTIFICATION=unused-kafka-is-plaintext
++KAFKA_SASL_PASSWORD_AUDIT=unused-kafka-is-plaintext
++KAFKA_SASL_PASSWORD_ANALYTICS=unused-kafka-is-plaintext
+diff --git a/infra/k8s/scripts/deploy-to-k3s.sh b/infra/k8s/scripts/deploy-to-k3s.sh
+new file mode 100755
+index 0000000..dbe579e
+--- /dev/null
++++ b/infra/k8s/scripts/deploy-to-k3s.sh
+@@ -0,0 +1,192 @@
++#!/usr/bin/env bash
++# Deploys the platform to a single-node k3s VPS behind the F5 NGINX Ingress Controller, with
++# a Let's Encrypt certificate from cert-manager. Run on the VPS, as root, from the repo root:
++#
++#   DOMAIN=health.example.com ACME_EMAIL=you@example.com ./infra/k8s/scripts/deploy-to-k3s.sh
++#
++# Safe to re-run: it's also the redeploy command after pulling new code.
++#
++# Optional env:
++#   ACME_STAGING=1   use Let's Encrypt staging (untrusted cert, no rate limits) while testing
++#   SKIP_BUILD=1     don't build; expects images already imported under IMAGE_TAG
++#   IMAGE_TAG=...    defaults to the current git short SHA
++set -euo pipefail
++
++: "${DOMAIN:?Set DOMAIN, e.g. DOMAIN=health.example.com (its A record must point at this VPS)}"
++: "${ACME_EMAIL:?Set ACME_EMAIL, used for the ACME account and certificate expiry notices}"
++
++REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
++OVERLAY="$REPO_ROOT/infra/k8s/overlays/k3s"
++SECRETS_FILE="$OVERLAY/secrets.env"
++GENERATED="$REPO_ROOT/infra/k8s/.generated/k3s"
++export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
++
++SERVICES=(
++  identity-service patient-service doctor-service appointment-service emr-service
++  billing-service notification-service audit-service analytics-service graphql-gateway
++)
++
++if [[ $EUID -ne 0 ]]; then
++  echo "Run as root (sudo -E keeps DOMAIN/ACME_EMAIL)." >&2
++  exit 1
++fi
++
++wait_for_deploy() {
++  local ns=$1 name=$2
++  echo "    waiting for $ns/$name"
++  for _ in $(seq 1 90); do
++    kubectl -n "$ns" get deploy "$name" >/dev/null 2>&1 && break
++    sleep 5
++  done
++  kubectl -n "$ns" rollout status "deploy/$name" --timeout=300s
++}
++
++echo "==> k3s"
++if ! command -v k3s >/dev/null 2>&1; then
++  # Traefik is disabled so the NGINX Ingress Controller can own ports 80/443.
++  curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--disable=traefik" sh -
++fi
++kubectl wait --for=condition=Ready node --all --timeout=180s
++if kubectl -n kube-system get deploy traefik >/dev/null 2>&1; then
++  echo "Traefik is running and holds ports 80/443. Add 'disable: [traefik]' to" >&2
++  echo "/etc/rancher/k3s/config.yaml, run 'systemctl restart k3s', then re-run this script." >&2
++  exit 1
++fi
++
++echo "==> NGINX Ingress Controller + cert-manager"
++kubectl apply -f "$OVERLAY/platform/"
++wait_for_deploy nginx-ingress nginx-ingress-controller
++wait_for_deploy cert-manager cert-manager
++wait_for_deploy cert-manager cert-manager-webhook
++
++echo "==> Let's Encrypt ClusterIssuer"
++if [[ "${ACME_STAGING:-0}" == "1" ]]; then
++  ACME_SERVER=https://acme-staging-v02.api.letsencrypt.org/directory
++else
++  ACME_SERVER=https://acme-v02.api.letsencrypt.org/directory
++fi
++# The webhook can take a few seconds after rollout to start serving; retry until it accepts.
++for attempt in $(seq 1 12); do
++  if kubectl apply -f - <<EOF
++apiVersion: cert-manager.io/v1
++kind: ClusterIssuer
++metadata:
++  name: letsencrypt
++spec:
++  acme:
++    server: $ACME_SERVER
++    email: $ACME_EMAIL
++    privateKeySecretRef:
++      name: letsencrypt-account-key
++    solvers:
++      - http01:
++          ingress:
++            ingressClassName: nginx
++EOF
++  then break; fi
++  [[ $attempt -eq 12 ]] && { echo "cert-manager webhook never became ready" >&2; exit 1; }
++  sleep 5
++done
++
++echo "==> Secrets"
++if [[ ! -f "$SECRETS_FILE" ]]; then
++  rand() { openssl rand -hex "${1:-24}"; }
++  umask 077
++  {
++    echo "JWT_SECRET=$(rand 32)"
++    echo "DB_PASSWORD=$(rand)"
++    echo "POSTGRES_SUPERUSER_PASSWORD=$(rand)"
++    echo "RABBITMQ_USER=notification_service"
++    echo "RABBITMQ_PASSWORD=$(rand)"
++    echo "MINIO_ROOT_USER=emr-minio"
++    echo "MINIO_ROOT_PASSWORD=$(rand)"
++    for svc in IDENTITY PATIENT DOCTOR APPOINTMENT EMR BILLING NOTIFICATION AUDIT ANALYTICS; do
++      echo "KAFKA_SASL_PASSWORD_${svc}=unused-kafka-is-plaintext"
++    done
++  } > "$SECRETS_FILE"
++  echo "    generated $SECRETS_FILE — back it up; Postgres is initialised with these passwords"
++else
++  echo "    using existing $SECRETS_FILE"
++fi
++
++echo "==> Images"
++if [[ -z "${IMAGE_TAG:-}" ]]; then
++  IMAGE_TAG="$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || date +%Y%m%d%H%M%S)"
++  # Uncommitted changes would otherwise reuse the last commit's tag and never roll out.
++  if ! git -C "$REPO_ROOT" diff --quiet HEAD 2>/dev/null; then
++    IMAGE_TAG="${IMAGE_TAG}-dirty-$(date +%Y%m%d%H%M%S)"
++  fi
++fi
++echo "    tag: $IMAGE_TAG"
++
++if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
++  command -v docker >/dev/null 2>&1 || {
++    echo "Docker is needed to build images: curl -fsSL https://get.docker.com | sh" >&2
++    exit 1
++  }
++  export DOCKER_BUILDKIT=1
++  IMAGES=()
++  for svc in "${SERVICES[@]}"; do
++    echo "--> $svc"
++    # --provenance=false: attestation manifests make 'k3s ctr images import' fail.
++    docker build --provenance=false -q -t "healthcare-platform/$svc:$IMAGE_TAG" \
++      -f "$REPO_ROOT/backend/$svc/Dockerfile" "$REPO_ROOT/backend"
++    IMAGES+=("healthcare-platform/$svc:$IMAGE_TAG")
++  done
++  echo "--> frontend"
++  docker build --provenance=false -q -t "healthcare-platform/frontend:$IMAGE_TAG" "$REPO_ROOT/frontend"
++  IMAGES+=("healthcare-platform/frontend:$IMAGE_TAG")
++
++  echo "    importing into k3s containerd"
++  TAR="$(mktemp --suffix=.tar)"
++  docker save -o "$TAR" "${IMAGES[@]}"
++  k3s ctr images import "$TAR"
++  rm -f "$TAR"
++fi
++
++echo "==> Applying overlay"
++mkdir -p "$GENERATED"
++{
++  cat <<EOF
++# Generated by deploy-to-k3s.sh — per-deploy values layered on the k3s overlay. Gitignored.
++apiVersion: kustomize.config.k8s.io/v1beta1
++kind: Kustomization
++resources:
++  - ../../overlays/k3s
++images:
++EOF
++  for img in "${SERVICES[@]}" frontend; do
++    printf '  - name: healthcare-platform/%s\n    newTag: "%s"\n' "$img" "$IMAGE_TAG"
++  done
++  cat <<EOF
++patches:
++  - target: { kind: Ingress, name: platform-gateway }
++    patch: |-
++      - op: add
++        path: /spec/rules/0/host
++        value: "$DOMAIN"
++      - op: add
++        path: /spec/tls
++        value:
++          - hosts: ["$DOMAIN"]
++            secretName: platform-tls
++  - target: { kind: ConfigMap, name: platform-config }
++    patch: |-
++      - op: add
++        path: /data/CORS_ALLOWED_ORIGINS
++        value: "https://$DOMAIN"
++EOF
++} > "$GENERATED/kustomization.yaml"
++
++kubectl apply -k "$GENERATED"
++
++echo "==> Waiting for workloads (cold start: expect a few restarts while Postgres/Kafka/MinIO come up)"
++kubectl -n healthcare-platform wait --for=condition=available deployment --all --timeout=900s \
++  || echo "    not all ready yet: kubectl -n healthcare-platform get pods"
++
++echo "==> Waiting for TLS certificate"
++kubectl -n healthcare-platform wait --for=condition=Ready certificate/platform-tls --timeout=300s \
++  || echo "    not issued yet: kubectl -n healthcare-platform describe certificate platform-tls"
++
++echo
++echo "Done: https://$DOMAIN"
