@@ -119,7 +119,6 @@ jobs:
   # Required repo configuration (Settings > Secrets and variables > Actions):
   #   secrets.DEPLOY_SSH_KEY         private key whose public half is in the server's authorized_keys
   #   secrets.DEPLOY_KNOWN_HOSTS     output of `ssh-keyscan -t ed25519 <host>` (pins the host key)
-  #   secrets.GHCR_PULL_TOKEN        PAT with read:packages, so the cluster can pull private images
   #   vars.DEPLOY_HOST / DEPLOY_USER SSH target (e.g. srv2053232 host/IP, root)
   #   vars.PUBLIC_ORIGIN             browser origin of the frontend, e.g. https://health.example.com
   #   secrets.JWT_RSA_PRIVATE_KEY / JWT_RSA_PUBLIC_KEY / FIELD_ENCRYPTION_KEY /
@@ -164,14 +163,6 @@ jobs:
           kustomize build . > "$RUNNER_TEMP/manifests.yaml"
       - name: Ensure namespace
         run: ssh "$SSH_TARGET" "$KUBECTL create namespace healthcare-platform --dry-run=client -o yaml | $KUBECTL apply -f -"
-      - name: Registry pull secret
-        run: |
-          kubectl create secret docker-registry ghcr-pull \
-            --docker-server=ghcr.io \
-            --docker-username="${{ github.repository_owner }}" \
-            --docker-password="${{ secrets.GHCR_PULL_TOKEN }}" \
-            -n healthcare-platform --dry-run=client -o yaml \
-            | ssh "$SSH_TARGET" "$KUBECTL apply -f -"
       - name: Apply manifests
         run: |
           ssh "$SSH_TARGET" "$KUBECTL apply -f -" < "$RUNNER_TEMP/manifests.yaml"
