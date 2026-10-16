@@ -1,5 +1,7 @@
 package com.healthplatform.identity;
 
+import com.healthplatform.common.crypto.BlindIndexHasher;
+import com.healthplatform.common.crypto.FieldEncryptionProperties;
 import com.healthplatform.common.exception.BusinessException;
 import com.healthplatform.identity.config.JwtProperties;
 import com.healthplatform.identity.domain.RefreshToken;
@@ -10,8 +12,10 @@ import com.healthplatform.identity.repository.UserRepository;
 import com.healthplatform.identity.service.AuthService;
 import com.healthplatform.identity.service.JwtService;
 import com.healthplatform.identity.web.dto.AuthResponse;
+import com.healthplatform.identity.web.dto.CreateStaffAccountRequest;
 import com.healthplatform.identity.web.dto.LoginRequest;
 import com.healthplatform.identity.web.dto.RegisterRequest;
+import com.healthplatform.identity.web.dto.StaffAccountResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -32,6 +36,7 @@ class AuthServiceTest {
     private UserRepository userRepository;
     private RefreshTokenRepository refreshTokenRepository;
     private JwtService jwtService;
+    private BlindIndexHasher blindIndexHasher;
     private AuthService authService;
 
     @BeforeEach
@@ -41,20 +46,25 @@ class AuthServiceTest {
         jwtService = mock(JwtService.class);
 
         JwtProperties props = new JwtProperties();
-        props.setSecret("test-secret-value-at-least-32-bytes-long!!");
         props.setAccessTokenTtlMinutes(15);
         props.setRefreshTokenTtlDays(30);
+
+        FieldEncryptionProperties encryptionProps = new FieldEncryptionProperties();
+        // Fixed 32-byte test key. Real deployments set FIELD_ENCRYPTION_HMAC_KEY
+        // (see docker-compose.yml / infra/k8s/base/secrets.yaml).
+        encryptionProps.setHmacKey("QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI=");
+        blindIndexHasher = new BlindIndexHasher(encryptionProps);
 
         when(jwtService.generateAccessToken(any(), any(), any())).thenReturn("fake.jwt.token");
         when(refreshTokenRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        authService = new AuthService(userRepository, refreshTokenRepository, jwtService, props);
+        authService = new AuthService(userRepository, refreshTokenRepository, jwtService, props, blindIndexHasher);
     }
 
     @Test
     void registerRejectsDuplicateEmail() {
-        when(userRepository.existsByEmail("aya@example.com")).thenReturn(true);
+        when(userRepository.existsByEmailHash(blindIndexHasher.hash("aya@example.com"))).thenReturn(true);
 
         assertThatThrownBy(() -> authService.register(new RegisterRequest("aya@example.com", "supersecurepassword")))
                 .isInstanceOf(BusinessException.class)
@@ -63,7 +73,7 @@ class AuthServiceTest {
 
     @Test
     void registerDefaultsToPatientRole() {
-        when(userRepository.existsByEmail(any())).thenReturn(false);
+        when(userRepository.existsByEmailHash(any())).thenReturn(false);
 
         authService.register(new RegisterRequest("new@example.com", "supersecurepassword"));
 
@@ -72,10 +82,43 @@ class AuthServiceTest {
     }
 
     @Test
+    void createStaffAccountAssignsTheRequestedRole() {
+        when(userRepository.existsByEmailHash(any())).thenReturn(false);
+
+        StaffAccountResponse response = authService.createStaffAccount(
+                new CreateStaffAccountRequest("doctor@example.com", "supersecurepassword", Role.ROLE_DOCTOR));
+
+        assertThat(response.email()).isEqualTo("doctor@example.com");
+        assertThat(response.role()).isEqualTo(Role.ROLE_DOCTOR);
+        ArgumentCaptorLike captured = captureSavedUser();
+        assertThat(captured.roles()).containsExactly(Role.ROLE_DOCTOR);
+    }
+
+    @Test
+    void createStaffAccountRejectsPatientRole() {
+        assertThatThrownBy(() -> authService.createStaffAccount(
+                new CreateStaffAccountRequest("nope@example.com", "supersecurepassword", Role.ROLE_PATIENT)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("self-service registration");
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void createStaffAccountRejectsDuplicateEmail() {
+        when(userRepository.existsByEmailHash(blindIndexHasher.hash("admin@example.com"))).thenReturn(true);
+
+        assertThatThrownBy(() -> authService.createStaffAccount(
+                new CreateStaffAccountRequest("admin@example.com", "supersecurepassword", Role.ROLE_ADMIN)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("already exists");
+    }
+
+    @Test
     void loginRejectsWrongPassword() {
         BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
-        User existing = new User("aya@example.com", encoder.encode("correct-password-123"), EnumSet.of(Role.ROLE_PATIENT));
-        when(userRepository.findByEmail("aya@example.com")).thenReturn(Optional.of(existing));
+        User existing = new User("aya@example.com", blindIndexHasher.hash("aya@example.com"),
+                encoder.encode("correct-password-123"), EnumSet.of(Role.ROLE_PATIENT));
+        when(userRepository.findByEmailHash(blindIndexHasher.hash("aya@example.com"))).thenReturn(Optional.of(existing));
 
         assertThatThrownBy(() -> authService.login(new LoginRequest("aya@example.com", "wrong-password")))
                 .isInstanceOf(BusinessException.class)
@@ -85,9 +128,10 @@ class AuthServiceTest {
     @Test
     void loginRejectsLockedAccount() {
         BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
-        User existing = new User("aya@example.com", encoder.encode("correct-password-123"), EnumSet.of(Role.ROLE_PATIENT));
+        User existing = new User("aya@example.com", blindIndexHasher.hash("aya@example.com"),
+                encoder.encode("correct-password-123"), EnumSet.of(Role.ROLE_PATIENT));
         existing.lock();
-        when(userRepository.findByEmail("aya@example.com")).thenReturn(Optional.of(existing));
+        when(userRepository.findByEmailHash(blindIndexHasher.hash("aya@example.com"))).thenReturn(Optional.of(existing));
 
         assertThatThrownBy(() -> authService.login(new LoginRequest("aya@example.com", "correct-password-123")))
                 .isInstanceOf(BusinessException.class)
@@ -97,9 +141,10 @@ class AuthServiceTest {
     @Test
     void loginRejectsDisabledAccount() {
         BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
-        User existing = new User("aya@example.com", encoder.encode("correct-password-123"), EnumSet.of(Role.ROLE_PATIENT));
+        User existing = new User("aya@example.com", blindIndexHasher.hash("aya@example.com"),
+                encoder.encode("correct-password-123"), EnumSet.of(Role.ROLE_PATIENT));
         existing.disable();
-        when(userRepository.findByEmail("aya@example.com")).thenReturn(Optional.of(existing));
+        when(userRepository.findByEmailHash(blindIndexHasher.hash("aya@example.com"))).thenReturn(Optional.of(existing));
 
         assertThatThrownBy(() -> authService.login(new LoginRequest("aya@example.com", "correct-password-123")))
                 .isInstanceOf(BusinessException.class)
@@ -109,7 +154,7 @@ class AuthServiceTest {
     @Test
     void refreshRotatesStoredTokenAndIssuesNewPairForValidToken() {
         UUID userId = UUID.randomUUID();
-        User user = new User("aya@example.com", "hash", EnumSet.of(Role.ROLE_PATIENT));
+        User user = new User("aya@example.com", "email-hash", "hash", EnumSet.of(Role.ROLE_PATIENT));
         RefreshToken stored = new RefreshToken(userId, "irrelevant-hash", Instant.now().plusSeconds(3600));
         when(refreshTokenRepository.findByTokenHash(any())).thenReturn(Optional.of(stored));
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));

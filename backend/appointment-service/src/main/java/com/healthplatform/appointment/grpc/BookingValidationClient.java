@@ -2,6 +2,8 @@ package com.healthplatform.appointment.grpc;
 
 import com.healthplatform.common.exception.BusinessException;
 import com.healthplatform.common.exception.ResourceNotFoundException;
+import com.healthplatform.common.grpc.CheckAvailabilityRequest;
+import com.healthplatform.common.grpc.DoctorAvailabilityGrpc;
 import com.healthplatform.common.grpc.DoctorLookupGrpc;
 import com.healthplatform.common.grpc.DoctorLookupRequest;
 import com.healthplatform.common.grpc.PatientLookupGrpc;
@@ -11,6 +13,9 @@ import net.devh.boot.grpc.client.inject.GrpcClient;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -31,6 +36,9 @@ public class BookingValidationClient {
     @GrpcClient("doctor-service")
     private DoctorLookupGrpc.DoctorLookupBlockingStub doctorLookupStub;
 
+    @GrpcClient("doctor-service")
+    private DoctorAvailabilityGrpc.DoctorAvailabilityBlockingStub doctorAvailabilityStub;
+
     public void requirePatientExists(UUID patientId) {
         var response = call(() -> patientLookupStub
                 .withDeadlineAfter(DEADLINE.toMillis(), TimeUnit.MILLISECONDS)
@@ -46,6 +54,26 @@ public class BookingValidationClient {
                 .getDoctor(DoctorLookupRequest.newBuilder().setDoctorId(doctorId.toString()).build()));
         if (!response.getExists()) {
             throw new ResourceNotFoundException("Doctor not found: " + doctorId);
+        }
+    }
+
+    /**
+     * AvailabilitySlot is a recurring weekly window (day-of-week + local start/end), so the
+     * booking Instant is projected onto that shape in UTC. Bookings crossing midnight UTC into
+     * another day-of-week aren't supported, same as AvailabilitySlot itself.
+     */
+    public void requireDoctorAvailable(UUID doctorId, Instant scheduledStart, Instant scheduledEnd) {
+        ZonedDateTime start = scheduledStart.atZone(ZoneOffset.UTC);
+        var response = call(() -> doctorAvailabilityStub
+                .withDeadlineAfter(DEADLINE.toMillis(), TimeUnit.MILLISECONDS)
+                .checkAvailability(CheckAvailabilityRequest.newBuilder()
+                        .setDoctorId(doctorId.toString())
+                        .setDayOfWeek(start.getDayOfWeek().name())
+                        .setStartTime(start.toLocalTime().toString())
+                        .setEndTime(scheduledEnd.atZone(ZoneOffset.UTC).toLocalTime().toString())
+                        .build()));
+        if (!response.getAvailable()) {
+            throw new BusinessException("DOCTOR_UNAVAILABLE", "Doctor is not available at the requested time");
         }
     }
 

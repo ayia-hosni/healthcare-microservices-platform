@@ -1,0 +1,9 @@
+# Copy to terraform.tfvars (gitignored).
+
+location = "centralus"
+
+tags = {
+  project   = "healthcare-platform"
+  managedby = "terraform"
+  owner     = "CHANGEME"
+}

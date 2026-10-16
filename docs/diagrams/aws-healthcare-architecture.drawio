@@ -1,0 +1,297 @@
+<mxfile host="app.diagrams.net" modified="2026-08-26T00:00:00.000Z" agent="Claude" version="24.0.0" type="device">
+  <diagram name="Architecture" id="arch1">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1240" pageHeight="1950" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Internet -->
+        <mxCell id="internet" value="Internet" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#8C4FFF;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.internet_gateway;" vertex="1" parent="1">
+          <mxGeometry x="580" y="20" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Route53/TLS/WAF -->
+        <mxCell id="route53box" value="Route 53 / TLS / WAF" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F0FF;strokeColor=#9673A6;fontSize=13;fontStyle=1;verticalAlign=middle;align=center;spacingLeft=45;" vertex="1" parent="1">
+          <mxGeometry x="460" y="120" width="300" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="route53icon" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#8C4FFF;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.route_53;" vertex="1" parent="1">
+          <mxGeometry x="475" y="135" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="wafIcon" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#DD344C;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.waf;" vertex="1" parent="1">
+          <mxGeometry x="705" y="135" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ALB -->
+        <mxCell id="albbox" value="Application Load Balancer (ALB) / Ingress Layer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F0FF;strokeColor=#9673A6;fontSize=13;fontStyle=1;verticalAlign=middle;align=center;spacingLeft=45;" vertex="1" parent="1">
+          <mxGeometry x="440" y="230" width="320" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="albicon" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#8C4FFF;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.application_load_balancer;" vertex="1" parent="1">
+          <mxGeometry x="455" y="245" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- VPC container: native AWS4 group -->
+        <mxCell id="vpc" value="Amazon VPC" style="fillColor=none;strokeColor=#248814;dashed=0;verticalAlign=top;fontStyle=1;fontColor=#248814;whiteSpace=wrap;html=1;fontSize=15;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_vpc2;strokeWidth=2;align=left;spacingLeft=35;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="60" y="340" width="1080" height="720" as="geometry" />
+        </mxCell>
+
+        <!-- EKS container -->
+        <mxCell id="eks" value="Amazon EKS" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAF2FB;strokeColor=#1A73C9;fontSize=15;fontStyle=1;verticalAlign=top;align=left;spacingLeft=45;spacingTop=8;" vertex="1" parent="1">
+          <mxGeometry x="100" y="390" width="1000" height="490" as="geometry" />
+        </mxCell>
+        <mxCell id="eksicon" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#ED7100;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.elastic_kubernetes_service;" vertex="1" parent="1">
+          <mxGeometry x="115" y="395" width="32" height="32" as="geometry" />
+        </mxCell>
+
+        <!-- System Node Group -->
+        <mxCell id="sysnode" value="System Node Group" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1A73C9;fontSize=13;fontStyle=1;verticalAlign=top;align=center;spacingTop=10;" vertex="1" parent="1">
+          <mxGeometry x="140" y="440" width="260" height="270" as="geometry" />
+        </mxCell>
+        <mxCell id="sysnode_icon" value="" style="shape=image;html=1;image=https://icons.diagrams.net/assets/kubernetes/1/node.svg;verticalLabelPosition=middle;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="150" y="447" width="26" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="coredns_icon" value="" style="shape=image;html=1;image=https://icons.diagrams.net/assets/kubernetes/1/deploy.svg;verticalLabelPosition=middle;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="170" y="480" width="34" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="coredns" value="CoreDNS" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="215" y="480" width="170" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="vpccni_icon" value="" style="shape=image;html=1;image=https://icons.diagrams.net/assets/kubernetes/1/netpol.svg;verticalLabelPosition=middle;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="170" y="530" width="34" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="vpccni" value="VPC CNI" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="215" y="530" width="170" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="addons_icon" value="" style="shape=image;html=1;image=https://icons.diagrams.net/assets/kubernetes/1/cm.svg;verticalLabelPosition=middle;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="170" y="580" width="34" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="addons" value="Cluster Add-ons" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="215" y="580" width="170" height="34" as="geometry" />
+        </mxCell>
+
+        <!-- Application Node Group -->
+        <mxCell id="appnode" value="Application Node Group" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1A73C9;fontSize=13;fontStyle=1;verticalAlign=top;align=center;spacingTop=10;" vertex="1" parent="1">
+          <mxGeometry x="430" y="440" width="640" height="400" as="geometry" />
+        </mxCell>
+        <mxCell id="appnode_icon" value="" style="shape=image;html=1;image=https://icons.diagrams.net/assets/kubernetes/1/node.svg;verticalLabelPosition=middle;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="440" y="447" width="26" height="26" as="geometry" />
+        </mxCell>
+
+        <!-- left column pods -->
+        <mxCell id="identity_icon" value="" style="shape=image;html=1;image=https://icons.diagrams.net/assets/kubernetes/1/pod.svg;verticalLabelPosition=middle;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="460" y="480" width="32" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="identity" value="Identity" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="500" y="480" width="230" height="32" as="geometry" />
+        </mxCell>
+
+        <mxCell id="patient_icon" value="" style="shape=image;html=1;image=https://icons.diagrams.net/assets/kubernetes/1/pod.svg;verticalLabelPosition=middle;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="460" y="522" width="32" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="patient" value="Patient" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="500" y="522" width="230" height="32" as="geometry" />
+        </mxCell>
+
+        <mxCell id="doctor_icon" value="" style="shape=image;html=1;image=https://icons.diagrams.net/assets/kubernetes/1/pod.svg;verticalLabelPosition=middle;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="460" y="564" width="32" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="doctor" value="Doctor" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="500" y="564" width="230" height="32" as="geometry" />
+        </mxCell>
+
+        <mxCell id="appointment_icon" value="" style="shape=image;html=1;image=https://icons.diagrams.net/assets/kubernetes/1/pod.svg;verticalLabelPosition=middle;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="460" y="606" width="32" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="appointment" value="Appointment" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="500" y="606" width="230" height="32" as="geometry" />
+        </mxCell>
+
+        <mxCell id="emr_icon" value="" style="shape=image;html=1;image=https://icons.diagrams.net/assets/kubernetes/1/pod.svg;verticalLabelPosition=middle;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="460" y="648" width="32" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="emr" value="EMR" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="500" y="648" width="230" height="32" as="geometry" />
+        </mxCell>
+
+        <mxCell id="graphql_icon" value="" style="shape=image;html=1;image=https://icons.diagrams.net/assets/kubernetes/1/svc.svg;verticalLabelPosition=middle;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="460" y="690" width="32" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="graphql" value="GraphQL Gateway" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="500" y="690" width="230" height="32" as="geometry" />
+        </mxCell>
+
+        <!-- right column pods -->
+        <mxCell id="billing_icon" value="" style="shape=image;html=1;image=https://icons.diagrams.net/assets/kubernetes/1/pod.svg;verticalLabelPosition=middle;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="770" y="480" width="32" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="billing" value="Billing" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="810" y="480" width="230" height="32" as="geometry" />
+        </mxCell>
+
+        <mxCell id="notification_icon" value="" style="shape=image;html=1;image=https://icons.diagrams.net/assets/kubernetes/1/pod.svg;verticalLabelPosition=middle;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="770" y="522" width="32" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="notification" value="Notification" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="810" y="522" width="230" height="32" as="geometry" />
+        </mxCell>
+
+        <mxCell id="audit_icon" value="" style="shape=image;html=1;image=https://icons.diagrams.net/assets/kubernetes/1/pod.svg;verticalLabelPosition=middle;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="770" y="564" width="32" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="audit" value="Audit" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="810" y="564" width="230" height="32" as="geometry" />
+        </mxCell>
+
+        <mxCell id="analytics_icon" value="" style="shape=image;html=1;image=https://icons.diagrams.net/assets/font-awesome/1/Chart_Line.svg;verticalLabelPosition=middle;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="770" y="606" width="32" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="analytics" value="Analytics" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="810" y="606" width="230" height="32" as="geometry" />
+        </mxCell>
+
+        <!-- RabbitMQ / Elasticsearch: use Font Awesome icons hosted on icons.diagrams.net -->
+        <mxCell id="rabbitmq_icon" value="" style="shape=image;html=1;image=https://icons.diagrams.net/assets/font-awesome/1/Retweet.svg;verticalLabelPosition=middle;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="770" y="648" width="32" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="rabbitmq" value="RabbitMQ" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="810" y="648" width="230" height="32" as="geometry" />
+        </mxCell>
+
+        <mxCell id="elasticsearch_icon" value="" style="shape=image;html=1;image=https://icons.diagrams.net/assets/font-awesome/1/Magnifying_Glass.svg;verticalLabelPosition=middle;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="770" y="690" width="32" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="elasticsearch" value="Elasticsearch" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="810" y="690" width="230" height="32" as="geometry" />
+        </mxCell>
+
+        <!-- OIDC/IAM bar -->
+        <mxCell id="oidc" value="OIDC / IAM Roles for Service Accounts" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#1A73C9;dashed=1;fontSize=12;fontStyle=0;verticalAlign=middle;align=center;spacingLeft=35;" vertex="1" parent="1">
+          <mxGeometry x="140" y="850" width="930" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="oidcicon" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#DD344C;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.identity_and_access_management;" vertex="1" parent="1">
+          <mxGeometry x="150" y="848" width="30" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- NAT Gateway -->
+        <mxCell id="nat" value="NAT Gateway" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#8C4FFF;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.nat_gateway;" vertex="1" parent="1">
+          <mxGeometry x="580" y="920" width="50" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- RDS -->
+        <mxCell id="rds" value="Amazon RDS for PostgreSQL" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAF2FB;strokeColor=#1A73C9;fontSize=13;fontStyle=1;verticalAlign=middle;align=center;spacingLeft=45;" vertex="1" parent="1">
+          <mxGeometry x="120" y="1020" width="280" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="rdsicon" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#C925D1;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.rds_postgresql_instance;" vertex="1" parent="1">
+          <mxGeometry x="135" y="1040" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ElastiCache -->
+        <mxCell id="ec" value="Amazon ElastiCache (Redis)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAF2FB;strokeColor=#1A73C9;fontSize=13;fontStyle=1;verticalAlign=middle;align=center;spacingLeft=45;" vertex="1" parent="1">
+          <mxGeometry x="460" y="1020" width="280" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="ecicon" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#C925D1;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.elasticache;" vertex="1" parent="1">
+          <mxGeometry x="475" y="1040" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- MSK -->
+        <mxCell id="msk" value="Amazon MSK (Kafka-compatible)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F0FF;strokeColor=#9673A6;fontSize=13;fontStyle=1;verticalAlign=middle;align=center;spacingLeft=45;" vertex="1" parent="1">
+          <mxGeometry x="800" y="1020" width="280" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="mskicon" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#8C4FFF;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.managed_streaming_for_kafka;" vertex="1" parent="1">
+          <mxGeometry x="815" y="1040" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- S3 -->
+        <mxCell id="s3" value="Amazon S3 (EMR Attachments)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E9F7EF;strokeColor=#248814;fontSize=13;fontStyle=1;verticalAlign=middle;align=center;spacingLeft=45;" vertex="1" parent="1">
+          <mxGeometry x="120" y="1140" width="280" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="s3icon" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#7AA116;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.simple_storage_service;" vertex="1" parent="1">
+          <mxGeometry x="135" y="1160" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Secrets/ECR dashed box -->
+        <mxCell id="secbox" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#666666;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="460" y="1140" width="620" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="secrets" value="AWS Secrets Manager" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FBEAEA;strokeColor=#C0392B;fontSize=12;fontStyle=1;verticalAlign=middle;align=center;spacingLeft=40;" vertex="1" parent="1">
+          <mxGeometry x="480" y="1160" width="270" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="secreticon" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#DD344C;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.secrets_manager;" vertex="1" parent="1">
+          <mxGeometry x="490" y="1170" width="35" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="ecr" value="Amazon ECR" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FDF0E4;strokeColor=#E07B00;fontSize=12;fontStyle=1;verticalAlign=middle;align=center;spacingLeft=40;" vertex="1" parent="1">
+          <mxGeometry x="780" y="1160" width="270" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="ecricon" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#ED7100;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.elastic_container_registry;" vertex="1" parent="1">
+          <mxGeometry x="790" y="1170" width="35" height="35" as="geometry" />
+        </mxCell>
+
+        <!-- Observability dashed box -->
+        <mxCell id="obsbox" value="Observability" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#9673A6;dashed=1;fontSize=15;fontStyle=1;verticalAlign=top;align=center;spacingTop=8;" vertex="1" parent="1">
+          <mxGeometry x="60" y="1280" width="1080" height="170" as="geometry" />
+        </mxCell>
+
+        <mxCell id="cw" value="Amazon CloudWatch" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAF2FB;strokeColor=#1A73C9;fontSize=12;verticalAlign=bottom;align=center;spacingBottom=8;" vertex="1" parent="1">
+          <mxGeometry x="90" y="1330" width="180" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="cwicon" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#E7157B;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cloudwatch_2;" vertex="1" parent="1">
+          <mxGeometry x="160" y="1345" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="prom_icon" value="" style="shape=image;html=1;image=https://icons.diagrams.net/assets/font-awesome/1/Fire.svg;verticalLabelPosition=middle;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="345" y="1345" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="prom" value="Prometheus" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;fontSize=12;verticalAlign=bottom;align=center;" vertex="1" parent="1">
+          <mxGeometry x="290" y="1330" width="180" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="grafana_icon" value="" style="shape=image;html=1;image=https://icons.diagrams.net/assets/font-awesome/1/Gauge.svg;verticalLabelPosition=middle;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="565" y="1345" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="grafana" value="Grafana" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;fontSize=12;verticalAlign=bottom;align=center;" vertex="1" parent="1">
+          <mxGeometry x="490" y="1330" width="180" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="zipkin_icon" value="" style="shape=image;html=1;image=https://icons.diagrams.net/assets/font-awesome/1/Route.svg;verticalLabelPosition=middle;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="765" y="1345" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="zipkin" value="Zipkin" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;fontSize=12;verticalAlign=bottom;align=center;" vertex="1" parent="1">
+          <mxGeometry x="690" y="1330" width="180" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ci_icon" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#E7157B;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cloudwatch_2;" vertex="1" parent="1">
+          <mxGeometry x="960" y="1345" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="ci" value="Container Insights" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;fontSize=12;verticalAlign=bottom;align=center;" vertex="1" parent="1">
+          <mxGeometry x="890" y="1330" width="180" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- Edges -->
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="internet" target="route53box">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="route53box" target="albbox">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="albbox" target="eks">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="oidc" target="nat">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="nat" target="rds">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="nat" target="ec">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="nat" target="msk">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="rds" target="s3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -81,4 +81,72 @@ class AppointmentTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("CANCELLED");
     }
+
+    @Test
+    void completeMovesScheduledToCompleted() {
+        Appointment appointment = newAppointment();
+
+        appointment.complete();
+
+        assertThat(appointment.getStatus()).isEqualTo(AppointmentStatus.COMPLETED);
+    }
+
+    @Test
+    void completeAllowsConfirmedAppointmentToo() {
+        Appointment appointment = newAppointment();
+        appointment.confirm();
+
+        appointment.complete();
+
+        assertThat(appointment.getStatus()).isEqualTo(AppointmentStatus.COMPLETED);
+    }
+
+    @Test
+    void completeRejectsCancelledAppointment() {
+        Appointment appointment = newAppointment();
+        appointment.cancel("no longer needed");
+
+        assertThatThrownBy(appointment::complete)
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("CANCELLED");
+    }
+
+    @Test
+    void completeRejectsAlreadyCompletedAppointment() {
+        Appointment appointment = newAppointment();
+        appointment.complete();
+
+        assertThatThrownBy(appointment::complete)
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("COMPLETED");
+    }
+
+    @Test
+    void markNoShowMovesScheduledToNoShow() {
+        Appointment appointment = newAppointment();
+
+        appointment.markNoShow();
+
+        assertThat(appointment.getStatus()).isEqualTo(AppointmentStatus.NO_SHOW);
+    }
+
+    @Test
+    void markNoShowRejectsConfirmedAppointment() {
+        Appointment appointment = newAppointment();
+        appointment.confirm();
+
+        assertThatThrownBy(appointment::markNoShow)
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("CONFIRMED");
+    }
+
+    @Test
+    void markNoShowRejectsCancelledAppointment() {
+        Appointment appointment = newAppointment();
+        appointment.cancel("no longer needed");
+
+        assertThatThrownBy(appointment::markNoShow)
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("CANCELLED");
+    }
 }

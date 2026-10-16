@@ -322,15 +322,23 @@ npm start
 
 ### Authentication configuration
 
-Services use a shared development JWT configuration unless explicitly overridden.
+`identity-service` signs access tokens RS256 with the throwaway dev keypair baked into its
+`application.yml` and publishes the public key at `/oauth2/jwks`. Every other service verifies
+against that URL — no shared secret to keep in sync.
 
-If you configure `JWT_SECRET`, use the same value for every service that issues or validates tokens:
+The only knobs you might set locally:
 
 ```bash
-export JWT_SECRET="your-shared-development-secret"
+# override the dev signing keypair (base64 DER, PEM armor optional)
+export JWT_RSA_PRIVATE_KEY="..."
+export JWT_RSA_PUBLIC_KEY="..."
+# where other services fetch the public key / the expected `iss` (defaults to http://localhost:8081)
+export JWT_ISSUER_URI="http://localhost:8081"
+export JWT_JWKS_URI="http://localhost:8081/oauth2/jwks"
 ```
 
-Inconsistent JWT secrets between the identity provider and services that validate tokens will cause authentication failures.
+If you override the keypair on `identity-service`, restart the other services so they refetch
+the JWKS.
 
 ### Tear down
 

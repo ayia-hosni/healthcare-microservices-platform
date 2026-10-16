@@ -1,12 +1,16 @@
 package com.healthplatform.doctor.service;
 
 import com.healthplatform.common.events.DoctorCreatedEvent;
+import com.healthplatform.common.exception.BusinessException;
 import com.healthplatform.common.exception.ResourceNotFoundException;
+import com.healthplatform.doctor.domain.AvailabilitySlot;
 import com.healthplatform.doctor.domain.Department;
 import com.healthplatform.doctor.domain.Doctor;
 import com.healthplatform.doctor.event.DoctorEventPublisher;
 import com.healthplatform.doctor.repository.DepartmentRepository;
 import com.healthplatform.doctor.repository.DoctorRepository;
+import com.healthplatform.doctor.web.dto.AvailabilitySlotRequest;
+import com.healthplatform.doctor.web.dto.AvailabilitySlotResponse;
 import com.healthplatform.doctor.web.dto.DoctorRequest;
 import com.healthplatform.doctor.web.dto.DoctorResponse;
 import org.slf4j.MDC;
@@ -71,5 +75,39 @@ public class DoctorService {
     private DoctorResponse toResponse(Doctor d) {
         return new DoctorResponse(d.getId(), d.getFirstName(), d.getLastName(), d.getSpecialty(),
                 d.getDepartment() != null ? d.getDepartment().getName() : null);
+    }
+
+    @Transactional
+    public AvailabilitySlotResponse addAvailabilitySlot(UUID doctorId, AvailabilitySlotRequest request) {
+        if (!request.startTime().isBefore(request.endTime())) {
+            throw new BusinessException("INVALID_AVAILABILITY_SLOT", "startTime must be before endTime");
+        }
+        Doctor doctor = doctorRepository.findById(doctorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found: " + doctorId));
+
+        AvailabilitySlot slot = new AvailabilitySlot(request.dayOfWeek(), request.startTime(), request.endTime());
+        doctor.addAvailabilitySlot(slot);
+
+        return toSlotResponse(slot);
+    }
+
+    @Transactional(readOnly = true)
+    public List<AvailabilitySlotResponse> getAvailability(UUID doctorId) {
+        Doctor doctor = doctorRepository.findById(doctorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found: " + doctorId));
+        return doctor.getAvailability().stream().map(this::toSlotResponse).toList();
+    }
+
+    @Transactional
+    public void removeAvailabilitySlot(UUID doctorId, UUID slotId) {
+        Doctor doctor = doctorRepository.findById(doctorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found: " + doctorId));
+        if (!doctor.removeAvailabilitySlot(slotId)) {
+            throw new ResourceNotFoundException("Availability slot not found: " + slotId);
+        }
+    }
+
+    private AvailabilitySlotResponse toSlotResponse(AvailabilitySlot slot) {
+        return new AvailabilitySlotResponse(slot.getId(), slot.getDayOfWeek(), slot.getStartTime(), slot.getEndTime());
     }
 }

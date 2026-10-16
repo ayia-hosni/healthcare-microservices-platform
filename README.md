@@ -98,6 +98,10 @@ Start with the documentation index:
 
 ➡️ **[Documentation Index](INDEX.md)**
 
+For a full walkthrough of platform capabilities and event flows per domain, see:
+
+➡️ **[Features](docs/FEATURES.md)**
+
 ### Recommended Paths
 
 #### 👔 Recruiters & Hiring Managers

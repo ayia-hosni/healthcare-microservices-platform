@@ -16,6 +16,32 @@ This project was generated using [Angular CLI](https://github.com/angular/angula
 
 Start the backend first (`docker compose up --build` from the repo root), then run this app.
 
+## Authentication & authorization
+
+The app authenticates against `identity-service`, which acts as a minimal OpenID Connect
+provider (it publishes `/.well-known/openid-configuration` and `/oauth2/jwks`, and issues
+RS256-signed JWT access tokens).
+
+- **Login / register** call `POST /api/v1/auth/{login,register}` and receive an
+  `accessToken` (15 min) + `refreshToken` (30 days). Both are kept in `localStorage`
+  (`hp_access_token` / `hp_refresh_token`) by `AuthService`.
+- **JWT** — `AuthService.decode()` reads the token payload (`sub`, `email`, `roles`, `exp`,
+  `iss`) without verifying the signature (that's each resource server's job via the issuer's
+  JWKS). Tokens whose `iss` claim doesn't match `environment.authIssuerUri` are rejected.
+- **Bearer attach** — `authInterceptor` adds `Authorization: Bearer <token>` to every
+  non-public request.
+- **Silent refresh** — `tokenRefreshInterceptor` catches a `401`, runs the OAuth2
+  `refresh_token` grant once (concurrent 401s share the single refresh), and replays the
+  request. `AuthService` also refreshes proactively ~60s before expiry. A failed refresh
+  logs the user out.
+- **Authorization** — route guards (`authGuard`, `adminGuard`, `staffGuard`) gate routes by
+  login state and role; they trigger a silent refresh before redirecting to `/login`.
+  `AuthService.hasAnyRole(...)` is the single client-side role check, also used to hide nav
+  the current user can't use. All of this is advisory — every endpoint is enforced
+  server-side with `@PreAuthorize`.
+
+The issuer URL and refresh skew live in `src/environments/environment*.ts`.
+
 ## Development server
 
 To start a local development server, run:

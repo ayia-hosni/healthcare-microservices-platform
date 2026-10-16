@@ -1,5 +1,6 @@
 package com.healthplatform.emr.domain;
 
+import com.healthplatform.common.crypto.EncryptedStringConverter;
 import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -31,6 +32,7 @@ public class Encounter {
     @Column(nullable = false)
     private Instant encounterDate = Instant.now();
 
+    @Convert(converter = EncryptedStringConverter.class)
     @Column(columnDefinition = "TEXT")
     private String notes;
 

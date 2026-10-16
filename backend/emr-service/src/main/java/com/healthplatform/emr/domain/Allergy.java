@@ -1,5 +1,6 @@
 package com.healthplatform.emr.domain;
 
+import com.healthplatform.common.crypto.EncryptedStringConverter;
 import jakarta.persistence.*;
 import java.util.UUID;
 
@@ -15,7 +16,8 @@ public class Allergy {
     @Column(nullable = false)
     private UUID patientId;
 
-    @Column(nullable = false)
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String substance;
 
     @Column(nullable = false)

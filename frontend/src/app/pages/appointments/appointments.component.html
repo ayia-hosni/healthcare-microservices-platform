@@ -9,7 +9,7 @@
         name="search"
         [(ngModel)]="searchQuery"
         (ngModelChange)="onFilterChange()"
-        placeholder="Search by doctor…"
+        [placeholder]="isDoctorView ? 'Search by patient…' : 'Search by doctor…'"
       />
     </div>
 
@@ -32,7 +32,7 @@
 
 <div class="table-container" *ngIf="!loading && !loadError">
   <div class="table-header" *ngIf="paginated.length">
-    <div class="sortable" (click)="sortBy('doctor')">Doctor <i class="fa-solid fa-sort"></i></div>
+    <div class="sortable" (click)="sortBy('doctor')">{{ isDoctorView ? 'Patient' : 'Doctor' }} <i class="fa-solid fa-sort"></i></div>
     <div class="sortable" (click)="sortBy('date')">Date &amp; time <i class="fa-solid fa-sort"></i></div>
     <div>Appointment ID</div>
     <div class="sortable" (click)="sortBy('duration')">Duration <i class="fa-solid fa-sort"></i></div>
@@ -41,7 +41,7 @@
   </div>
 
   <div class="table-row" *ngFor="let appt of paginated">
-    <div>{{ doctorName(appt.doctorId) }}</div>
+    <div>{{ isDoctorView ? patientLabel(appt.patientId) : doctorName(appt.doctorId) }}</div>
     <div class="date-col">
       <span>{{ appt.scheduledStart | date: 'MMM d, y' }}</span>
       <span>{{ appt.scheduledStart | date: 'h:mm a' }} – {{ appt.scheduledEnd | date: 'h:mm a' }}</span>
@@ -96,16 +96,16 @@
 
 <!-- Create appointment modal -->
 <div class="modal-overlay" *ngIf="modalOpen" (click)="closeModal()">
-  <div class="modal-content fade-in" (click)="$event.stopPropagation()">
+  <div class="modal-content wide fade-in" (click)="$event.stopPropagation()">
     <div class="modal-header">
       <h3>Create New Appointment</h3>
       <button class="close-modal" type="button" (click)="closeModal()"><i class="fa-solid fa-xmark"></i></button>
     </div>
-    <form (ngSubmit)="book()" #bookForm="ngForm">
+    <form (ngSubmit)="book()">
       <div class="form-group">
         <label>
           Doctor
-          <select name="newDoctorId" [(ngModel)]="newDoctorId" required>
+          <select name="newDoctorId" [(ngModel)]="newDoctorId" (ngModelChange)="onDoctorChange()" required>
             <option value="" disabled>Select a doctor</option>
             <option *ngFor="let doctor of doctors" [value]="doctor.id">
               Dr. {{ doctor.firstName }} {{ doctor.lastName }} — {{ doctor.specialty }}
@@ -113,26 +113,109 @@
           </select>
         </label>
       </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>
-            Start time
-            <input type="datetime-local" name="newStart" [(ngModel)]="newStart" required />
-          </label>
-        </div>
-        <div class="form-group">
-          <label>
-            End time
-            <input type="datetime-local" name="newEnd" [(ngModel)]="newEnd" required />
-          </label>
-        </div>
-      </div>
 
-      <p class="error" *ngIf="bookError">{{ bookError }}</p>
+      <ng-container *ngIf="selectedDoctor as doctor">
+        <div class="picker-doctor">
+          <div class="picker-avatar">{{ doctorInitials(doctor) }}</div>
+          <div class="picker-doctor-info">
+            <strong>Dr. {{ doctor.firstName }} {{ doctor.lastName }}</strong>
+            <span>{{ doctor.specialty }} · 30 min visit</span>
+          </div>
+        </div>
+
+        <p class="muted" *ngIf="loadingAvailability">Loading working hours…</p>
+
+        <ng-container *ngIf="!loadingAvailability">
+          <ng-container *ngIf="hasAnyAvailability && !showManualTime">
+            <div class="picker-week">
+              <span class="picker-week-label">{{ weekRangeLabel() }} · UTC</span>
+              <div class="picker-week-nav">
+                <button type="button" (click)="prevWeek()" aria-label="Previous week">
+                  <i class="fa-solid fa-chevron-left"></i>
+                </button>
+                <button type="button" (click)="nextWeek()" aria-label="Next week">
+                  <i class="fa-solid fa-chevron-right"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="picker-days">
+              <button
+                type="button"
+                class="picker-day"
+                *ngFor="let day of weekDays"
+                [class.active]="isActiveDate(day.date)"
+                [disabled]="!day.slotLabels.length"
+                (click)="selectDay(day.date)"
+              >
+                <span class="pd-name">{{ day.dayName }}</span>
+                <span class="pd-num">{{ day.dayNum }}</span>
+                <span class="pd-count" [class.none]="!day.slotLabels.length">
+                  {{ day.slotLabels.length ? day.slotLabels.length + ' open' : '—' }}
+                </span>
+              </button>
+            </div>
+
+            <div *ngIf="!groupedSlots.length" class="picker-slots-empty">
+              No open times on this day — pick another day above.
+            </div>
+
+            <div class="picker-period" *ngFor="let group of groupedSlots">
+              <div class="picker-period-label">{{ group.label }}</div>
+              <div class="picker-slot-grid">
+                <button
+                  type="button"
+                  class="picker-slot"
+                  *ngFor="let time of group.times"
+                  [class.selected]="selectedSlot === time"
+                  (click)="selectSlot(time)"
+                >
+                  {{ time }}
+                </button>
+              </div>
+            </div>
+
+            <div class="picker-summary" *ngIf="selectedSlot && activeDayCell">
+              <i class="fa-regular fa-clock"></i>
+              {{ activeDayCell.dayName }} {{ activeDayCell.dayNum }}, {{ selectedSlot }}–{{ selectedSlotEndLabel }} UTC
+            </div>
+
+            <p class="muted" style="margin-top: 0.85rem;">
+              Don't see a good time?
+              <a href="javascript:void(0)" (click)="toggleManualTime()">Enter a time manually</a>
+            </p>
+          </ng-container>
+
+          <p class="muted" *ngIf="!hasAnyAvailability && !showManualTime">
+            {{ availabilityError || "This doctor hasn't published working hours yet." }}
+            <a href="javascript:void(0)" (click)="toggleManualTime()">Enter a time manually</a>
+          </p>
+
+          <div class="form-row" *ngIf="showManualTime">
+            <div class="form-group">
+              <label>
+                Start time
+                <input type="datetime-local" name="newStart" [(ngModel)]="newStart" [ngModelOptions]="{ standalone: true }" />
+              </label>
+            </div>
+            <div class="form-group">
+              <label>
+                End time
+                <input type="datetime-local" name="newEnd" [(ngModel)]="newEnd" [ngModelOptions]="{ standalone: true }" />
+              </label>
+            </div>
+          </div>
+          <p class="muted" *ngIf="showManualTime && hasAnyAvailability" style="margin-top: -0.5rem;">
+            <a href="javascript:void(0)" (click)="toggleManualTime()">Back to available times</a>
+          </p>
+        </ng-container>
+      </ng-container>
+
+      <p class="error" *ngIf="bookError" style="margin-top: 1rem;">{{ bookError }}</p>
 
       <div class="modal-actions">
         <button type="button" (click)="closeModal()">Cancel</button>
-        <button type="submit" [disabled]="bookForm.invalid || booking">
+        <button type="submit" [disabled]="!canBook || booking">
           {{ booking ? 'Booking…' : 'Create Appointment' }}
         </button>
       </div>
@@ -148,7 +231,7 @@
       <button class="close-modal" type="button" (click)="closeCancelModal()"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <p class="muted">
-      With {{ doctorName(cancelTarget!.doctorId) }} on {{ cancelTarget!.scheduledStart | date: 'medium' }}.
+      With {{ isDoctorView ? patientLabel(cancelTarget!.patientId) : doctorName(cancelTarget!.doctorId) }} on {{ cancelTarget!.scheduledStart | date: 'medium' }}.
     </p>
     <div class="form-group">
       <label>

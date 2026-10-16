@@ -29,4 +29,6 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
     List<Appointment> findAllByStatusAndScheduledStartBetween(AppointmentStatus status, Instant from, Instant to);
 
     List<Appointment> findAllByPatientIdOrderByScheduledStartDesc(UUID patientId);
+
+    List<Appointment> findAllByDoctorIdOrderByScheduledStartDesc(UUID doctorId);
 }

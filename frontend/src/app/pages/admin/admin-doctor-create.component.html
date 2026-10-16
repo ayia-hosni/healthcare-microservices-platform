@@ -1,0 +1,111 @@
+<h2 class="admin-header-title">Add a doctor</h2>
+<p class="admin-header-sub">Creates their login and profile together, then set their weekly working hours below.</p>
+
+<div class="admin-panel" *ngIf="!doctor">
+  <form (ngSubmit)="createDoctor()" #profileForm="ngForm" class="admin-form">
+    <div class="admin-form-row">
+      <label class="admin-field">
+        Email (their login)
+        <input type="email" name="email" [(ngModel)]="email" required autocomplete="off" placeholder="name@example.com" />
+      </label>
+      <label class="admin-field">
+        Temporary password
+        <input type="text" name="password" [(ngModel)]="password" required minlength="12" autocomplete="off" placeholder="At least 12 characters" />
+      </label>
+    </div>
+    <div class="admin-form-row">
+      <label class="admin-field">
+        First name
+        <input type="text" name="firstName" [(ngModel)]="firstName" required autocomplete="off" />
+      </label>
+      <label class="admin-field">
+        Last name
+        <input type="text" name="lastName" [(ngModel)]="lastName" required autocomplete="off" />
+      </label>
+    </div>
+    <div class="admin-form-row">
+      <label class="admin-field">
+        Specialty
+        <input type="text" name="specialty" [(ngModel)]="specialty" required autocomplete="off" placeholder="Cardiology" />
+      </label>
+      <label class="admin-field">
+        Department
+        <input type="text" name="departmentName" [(ngModel)]="departmentName" required autocomplete="off" placeholder="Cardiology" />
+      </label>
+    </div>
+
+    <p class="admin-error" *ngIf="createError">{{ createError }}</p>
+
+    <button type="submit" class="admin-btn-primary" [disabled]="profileForm.invalid || creating">
+      {{ creating ? 'Creating…' : 'Create doctor' }}
+    </button>
+  </form>
+</div>
+
+<ng-container *ngIf="doctor as d">
+  <div class="admin-panel">
+    <div class="admin-receipt-row" style="border-bottom: none; padding-top: 0;">
+      <div class="admin-receipt-icon"><i class="fa-solid fa-circle-check"></i></div>
+      <div class="admin-receipt-info">
+        <strong>Dr. {{ d.firstName }} {{ d.lastName }} created</strong>
+        <span>{{ d.specialty }} · {{ d.departmentName }} · logs in as {{ email }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="admin-panel">
+    <h3 class="admin-panel-title">Weekly working hours (UTC)</h3>
+
+    <form (ngSubmit)="addSlot()" #slotForm="ngForm" class="admin-form">
+      <div class="admin-form-row" style="grid-template-columns: 1fr 1fr 1fr;">
+        <label class="admin-field">
+          Day
+          <select name="dayOfWeek" [(ngModel)]="dayOfWeek">
+            <option *ngFor="let day of days" [value]="day.value">{{ day.label }}</option>
+          </select>
+        </label>
+        <label class="admin-field">
+          Start
+          <input type="time" name="startTime" [(ngModel)]="startTime" required />
+        </label>
+        <label class="admin-field">
+          End
+          <input type="time" name="endTime" [(ngModel)]="endTime" required />
+        </label>
+      </div>
+
+      <p class="admin-error" *ngIf="slotError">{{ slotError }}</p>
+
+      <button type="submit" class="admin-btn-primary" [disabled]="slotForm.invalid || addingSlot">
+        {{ addingSlot ? 'Adding…' : 'Add slot' }}
+      </button>
+    </form>
+
+    <div *ngIf="slots.length" style="margin-top: 1.5rem;">
+      <div class="admin-receipt-row" *ngFor="let slot of slots">
+        <div class="admin-receipt-icon"><i class="fa-regular fa-clock"></i></div>
+        <div class="admin-receipt-info" style="flex: 1;">
+          <strong>{{ dayLabel(slot.dayOfWeek) }}</strong>
+          <span>{{ slot.startTime.slice(0, 5) }} – {{ slot.endTime.slice(0, 5) }} UTC</span>
+        </div>
+        <button
+          type="button"
+          class="admin-btn-primary"
+          style="background: transparent; color: #d94f4f; padding: 0.4rem 0.8rem; font-size: 0.8rem;"
+          [disabled]="removingId === slot.id"
+          (click)="removeSlot(slot)"
+        >
+          {{ removingId === slot.id ? 'Removing…' : 'Remove' }}
+        </button>
+      </div>
+    </div>
+
+    <p class="admin-header-sub" *ngIf="!slots.length" style="margin: 1rem 0 0;">
+      No hours set yet — add at least one slot so patients can actually book this doctor.
+    </p>
+  </div>
+
+  <a routerLink="/doctors" class="admin-btn-primary" style="display: inline-block; text-decoration: none;">
+    Done — view doctors
+  </a>
+</ng-container>

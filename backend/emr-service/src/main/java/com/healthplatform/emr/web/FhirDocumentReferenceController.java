@@ -16,9 +16,9 @@ import java.util.UUID;
 
 /**
  * The FHIR-facing read surface for clinical documents. Deliberately reuses the same bearer-JWT
- * authentication and role model every other endpoint on this platform already uses (see
- * common.security.JwtVerifier / ADR-0004) — a FHIR client is just another authenticated caller,
- * not a special integration with its own auth path.
+ * authentication and role model every other endpoint on this platform already uses (the shared
+ * resource-server chain in common.security.PlatformSecurityConfig) — a FHIR client is just
+ * another authenticated caller, not a special integration with its own auth path.
  */
 @RestController
 @RequestMapping("/fhir/DocumentReference")

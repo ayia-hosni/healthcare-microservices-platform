@@ -46,10 +46,20 @@ public class AppointmentController {
         return ResponseEntity.ok(appointmentService.getById(id));
     }
 
-    @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','PATIENT','DOCTOR','NURSE')")
+    // Two param-scoped mappings instead of one method with optional params: patientId and
+    // doctorId have different ownership rules (a patient sees only their own patientId, a
+    // doctor only their own doctorId), which is easier to read straight off the annotation.
+    // ADMIN and NURSE are unrestricted on both.
+    @GetMapping(params = "patientId")
+    @PreAuthorize("hasAnyRole('ADMIN','DOCTOR','NURSE') or (hasRole('PATIENT') and #patientId.toString() == authentication.name)")
     public ResponseEntity<java.util.List<AppointmentResponse>> getByPatientId(@RequestParam UUID patientId) {
         return ResponseEntity.ok(appointmentService.getByPatientId(patientId));
+    }
+
+    @GetMapping(params = "doctorId")
+    @PreAuthorize("hasAnyRole('ADMIN','NURSE') or (hasRole('DOCTOR') and #doctorId.toString() == authentication.name)")
+    public ResponseEntity<java.util.List<AppointmentResponse>> getByDoctorId(@RequestParam UUID doctorId) {
+        return ResponseEntity.ok(appointmentService.getByDoctorId(doctorId));
     }
 
     @PostMapping("/{id}/cancel")
@@ -64,5 +74,23 @@ public class AppointmentController {
     @PreAuthorize("hasAnyRole('ADMIN','PATIENT','NURSE')")
     public ResponseEntity<AppointmentResponse> reschedule(@PathVariable UUID id, @Valid @RequestBody RescheduleRequest request) {
         return ResponseEntity.ok(appointmentService.reschedule(id, request.newStart(), request.newEnd()));
+    }
+
+    @PostMapping("/{id}/check-in")
+    @PreAuthorize("hasAnyRole('ADMIN','NURSE','DOCTOR')")
+    public ResponseEntity<AppointmentResponse> checkIn(@PathVariable UUID id) {
+        return ResponseEntity.ok(appointmentService.checkIn(id));
+    }
+
+    @PostMapping("/{id}/complete")
+    @PreAuthorize("hasAnyRole('ADMIN','DOCTOR')")
+    public ResponseEntity<AppointmentResponse> complete(@PathVariable UUID id) {
+        return ResponseEntity.ok(appointmentService.complete(id));
+    }
+
+    @PostMapping("/{id}/no-show")
+    @PreAuthorize("hasAnyRole('ADMIN','NURSE','DOCTOR')")
+    public ResponseEntity<AppointmentResponse> markNoShow(@PathVariable UUID id) {
+        return ResponseEntity.ok(appointmentService.markNoShow(id));
     }
 }

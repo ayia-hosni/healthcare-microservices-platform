@@ -9,7 +9,7 @@ RUN --mount=type=cache,target=/root/.m2,sharing=locked mvn -q -f grpc-contracts/
 
 COPY common/pom.xml /workspace/common/pom.xml
 COPY common/src /workspace/common/src
-RUN --mount=type=cache,target=/root/.m2,sharing=locked mvn -q -f common/pom.xml install -Dmaven.test.skip=true
+RUN --mount=type=cache,target=/root/.m2,sharing=locked mvn -q -f common/pom.xml install -DskipTests
 
 COPY analytics-service/pom.xml /workspace/analytics-service/pom.xml
 RUN --mount=type=cache,target=/root/.m2,sharing=locked mvn -q -f analytics-service/pom.xml dependency:resolve

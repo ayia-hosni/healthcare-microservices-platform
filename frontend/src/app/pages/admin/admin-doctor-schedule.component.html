@@ -1,0 +1,82 @@
+<h2 class="admin-header-title">Doctor schedule</h2>
+<p class="admin-header-sub" *ngIf="!isRestrictedToSelf">Add or remove weekly working hours for an existing doctor.</p>
+<p class="admin-header-sub" *ngIf="isRestrictedToSelf">Add or remove your own weekly working hours.</p>
+
+<div class="admin-panel" *ngIf="!isRestrictedToSelf">
+  <label class="admin-field" style="margin-bottom: 0;">
+    Doctor
+    <select name="selectedDoctorId" [(ngModel)]="selectedDoctorId" (ngModelChange)="onDoctorChange()">
+      <option value="" disabled>{{ loadingDoctors ? 'Loading doctors…' : 'Select a doctor' }}</option>
+      <option *ngFor="let doctor of doctors" [value]="doctor.id">
+        Dr. {{ doctor.firstName }} {{ doctor.lastName }} — {{ doctor.specialty }}
+      </option>
+    </select>
+  </label>
+  <p class="admin-error" *ngIf="doctorsError" style="margin-top: 1rem;">{{ doctorsError }}</p>
+</div>
+
+<div class="admin-panel" *ngIf="isRestrictedToSelf && !loadingDoctors && !selectedDoctor">
+  <p class="admin-header-sub" style="margin: 0;">
+    Your login isn't linked to a doctor profile yet — ask an admin to create one for this account,
+    or via "Add doctor" using this same email.
+  </p>
+</div>
+
+<ng-container *ngIf="selectedDoctor as d">
+  <div class="admin-panel">
+    <h3 class="admin-panel-title">Weekly working hours (UTC) — Dr. {{ d.firstName }} {{ d.lastName }}</h3>
+
+    <p class="admin-header-sub" *ngIf="loadingSlots">Loading current schedule…</p>
+    <p class="admin-error" *ngIf="slotsError">{{ slotsError }}</p>
+
+    <ng-container *ngIf="!loadingSlots">
+      <form (ngSubmit)="addSlot()" #slotForm="ngForm" class="admin-form">
+        <div class="admin-form-row" style="grid-template-columns: 1fr 1fr 1fr;">
+          <label class="admin-field">
+            Day
+            <select name="dayOfWeek" [(ngModel)]="dayOfWeek">
+              <option *ngFor="let day of days" [value]="day.value">{{ day.label }}</option>
+            </select>
+          </label>
+          <label class="admin-field">
+            Start
+            <input type="time" name="startTime" [(ngModel)]="startTime" required />
+          </label>
+          <label class="admin-field">
+            End
+            <input type="time" name="endTime" [(ngModel)]="endTime" required />
+          </label>
+        </div>
+
+        <p class="admin-error" *ngIf="slotError">{{ slotError }}</p>
+
+        <button type="submit" class="admin-btn-primary" [disabled]="slotForm.invalid || addingSlot">
+          {{ addingSlot ? 'Adding…' : 'Add slot' }}
+        </button>
+      </form>
+
+      <div *ngIf="slots.length" style="margin-top: 1.5rem;">
+        <div class="admin-receipt-row" *ngFor="let slot of slots">
+          <div class="admin-receipt-icon"><i class="fa-regular fa-clock"></i></div>
+          <div class="admin-receipt-info" style="flex: 1;">
+            <strong>{{ dayLabel(slot.dayOfWeek) }}</strong>
+            <span>{{ slot.startTime.slice(0, 5) }} – {{ slot.endTime.slice(0, 5) }} UTC</span>
+          </div>
+          <button
+            type="button"
+            class="admin-btn-primary"
+            style="background: transparent; color: #d94f4f; padding: 0.4rem 0.8rem; font-size: 0.8rem;"
+            [disabled]="removingId === slot.id"
+            (click)="removeSlot(slot)"
+          >
+            {{ removingId === slot.id ? 'Removing…' : 'Remove' }}
+          </button>
+        </div>
+      </div>
+
+      <p class="admin-header-sub" *ngIf="!slots.length" style="margin: 1rem 0 0;">
+        No hours set yet — add at least one slot so patients can actually book this doctor.
+      </p>
+    </ng-container>
+  </div>
+</ng-container>

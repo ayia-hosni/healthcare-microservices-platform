@@ -51,6 +51,7 @@ Explore the infrastructure and deployment architecture.
 | Document | Description |
 | --- | --- |
 | [Architecture Overview](docs/architecture/README.md) | High-level system architecture and technology stack |
+| [Features](docs/FEATURES.md) | Feature and event walkthrough per domain (patients, appointments, EMR, billing, claims, FHIR, search, audit, analytics) |
 | [Application Architecture](docs/architecture/application-architecture.md) | Backend application structure |
 | [Microservices](docs/architecture/microservices.md) | Service responsibilities and boundaries |
 | [Service Communication](docs/architecture/communication.md) | REST, GraphQL, gRPC, events, and queues |
@@ -71,7 +72,7 @@ Explore the infrastructure and deployment architecture.
 | Document | Description |
 | --- | --- |
 | [Kubernetes](docs/infrastructure/kubernetes.md) | Kustomize deployments for Minikube and AKS |
-| [Terraform](docs/infrastructure/terraform.md) | Infrastructure as Code for Azure |
+| [Terraform](docs/infrastructure/terraform.md) | Infrastructure as Code — `azure/` (provisioned) and `aws/` trees |
 | [GitOps](docs/infrastructure/gitops.md) | Argo CD and deployment flow |
 | [`infra/k8s/README.md`](infra/k8s/README.md) | Kubernetes manifest layout in detail |
 | [`infra/terraform/README.md`](infra/terraform/README.md) | Terraform module layout in detail |

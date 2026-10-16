@@ -168,31 +168,26 @@ in [Data Services](data-services.md#production-database-evolution).
 
 Terraform manages the Azure platform.
 
+Component modules composed by four independently-stated layers.
+
 ```text
-infra/terraform/
+infra/terraform/azure/
 │
-├── bootstrap/
-│   ├── main.tf
-│   ├── variables.tf
-│   └── outputs.tf
+├── bootstrap/            # remote-state backend (Azure Storage container)
 │
-└── envs/
-    └── dev/
-        ├── main.tf
-        ├── provider.tf
-        ├── versions.tf
-        ├── backend.tf
-        ├── network.tf
-        ├── aks.tf
-        ├── postgres.tf
-        ├── redis.tf
-        ├── eventhubs.tf
-        ├── keyvault.tf
-        ├── acr.tf
-        ├── storage.tf
-        ├── monitoring.tf
-        └── variables.tf
+├── modules/             # reusable building blocks
+│   ├── network/  monitoring/  registry/  keyvault/
+│   ├── aks/  data/  storage/  cicd/
+│
+└── envs/dev/            # one root module + one state per layer
+    ├── 10-network/      # resource group, VNet, subnet, NSG, NAT
+    ├── 20-platform/     # Log Analytics, ACR, Key Vault, AKS + workload identity
+    ├── 30-data/         # Postgres (+ per-service DBs), Redis, Event Hubs, Storage, secrets
+    └── 40-cicd/         # GitHub Actions federation + role assignments
 ```
+
+Apply `10 → 20 → 30`; `40` any time after `20`. Each layer reads its upstream layers'
+outputs via `terraform_remote_state`.
 
 ## Terraform State
 

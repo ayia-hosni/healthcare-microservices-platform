@@ -2,14 +2,12 @@ package com.healthplatform.patient.repository;
 
 import com.healthplatform.patient.domain.Patient;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
 
-import java.util.List;
 import java.util.UUID;
 
+/**
+ * No name-search query here: firstName/lastName are encrypted at rest (see Patient), so a
+ * SQL LIKE can't match them. PatientService.search() decrypts and filters in Java instead.
+ */
 public interface PatientRepository extends JpaRepository<Patient, UUID> {
-
-    @Query("select p from Patient p where lower(p.lastName) like lower(concat('%', :query, '%')) " +
-           "or lower(p.firstName) like lower(concat('%', :query, '%'))")
-    List<Patient> searchByName(String query);
 }

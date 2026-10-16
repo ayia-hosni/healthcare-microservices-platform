@@ -1,0 +1,157 @@
+How to test: patient consent, doctor availability, appointment lifecycle/schedule check, and Kafka
+====================================================================================================
+
+Covers three recently added feature areas:
+  1. Patient consent management (patient-service)
+  2. Doctor availability / time-slot management (doctor-service)
+  3. Appointment lifecycle (check-in / complete / no-show) + the doctor-availability
+     "schedule check" now run before booking/rescheduling (appointment-service)
+...and how to watch the Kafka events these produce.
+
+
+1. AUTOMATED TESTS (fastest, no Docker needed for most of it)
+----------------------------------------------------------------
+
+The unit tests run against Mockito, no infra required:
+
+  cd backend
+  mvn -pl patient-service,doctor-service,appointment-service -am test -o \
+    -Dtest='PatientServiceTest,PatientServiceCacheTest,DoctorServiceTest,DoctorServiceCacheTest,DoctorAvailabilityGrpcServiceTest,AppointmentServiceTest,AppointmentTest'
+
+The Testcontainers-based ones (PatientControllerIntegrationTest, DoctorControllerIntegrationTest,
+AppointmentBookingIntegrationTest) spin up real Postgres and need Docker running. Drop the
+-Dtest=... filter and they're included automatically:
+
+  mvn -pl patient-service,doctor-service,appointment-service -am test
+
+
+2. MANUAL END-TO-END TESTING VIA DOCKER COMPOSE
+----------------------------------------------------------------
+
+Start the stack (first time only, generates Kafka's dev TLS certs):
+
+  ./infra/docker/kafka/generate-dev-certs.sh   # once
+  docker compose up --build -d
+  docker compose ps                            # wait for everything healthy
+
+Either run ./infra/seed/seed.sh to get 8 doctors + 20 patients + appointments for free, or
+drive it by hand below.
+
+--- Get tokens ---
+
+Patients self-register normally; every elevated role (ADMIN/DOCTOR/NURSE) has to be minted
+locally with the shared dev JWT_SECRET -- there's no API that issues one (see the big comment
+at the top of infra/seed/seed.sh; every service's JWT filter only checks the HS256 signature,
+it never looks the subject up in a DB). Save this helper as mint-jwt.sh:
+
+  # mint-jwt.sh -- usage: ./mint-jwt.sh ROLE_ADMIN [subject-uuid]
+  JWT_SECRET="local-dev-secret-key-please-change-in-production-32bytes"
+  role="$1"; sub="${2:-$(uuidgen)}"
+  b64() { openssl base64 -A | tr '+/' '-_' | tr -d '='; }
+  now=$(date +%s); exp=$((now + 3600))
+  h=$(printf '{"alg":"HS256","typ":"JWT"}' | b64)
+  p=$(printf '{"sub":"%s","roles":["%s"],"iat":%d,"exp":%d}' "$sub" "$role" "$now" "$exp" | b64)
+  sig=$(printf '%s' "$h.$p" | openssl dgst -sha256 -hmac "$JWT_SECRET" -binary | b64)
+  echo "$h.$p.$sig"
+
+  ADMIN=$(bash mint-jwt.sh ROLE_ADMIN)
+  DOCTOR_TOKEN=$(bash mint-jwt.sh ROLE_DOCTOR)
+
+For a real patient, register through identity-service and pull the id out of the token's own
+"sub" claim:
+
+  RESP=$(curl -s -X POST http://localhost:8081/api/v1/auth/register \
+    -H 'Content-Type: application/json' \
+    -d '{"email":"aya@example.com","password":"Sup3rSecret!!!"}')
+  PATIENT_TOKEN=$(echo "$RESP" | jq -r .accessToken)
+  PATIENT_ID=$(echo "$PATIENT_TOKEN" | cut -d. -f2 | tr -- '-_' '+/' | base64 -d 2>/dev/null | jq -r .sub)
+
+--- Patient consent (section 1) ---
+
+  curl -s -X POST http://localhost:8082/api/v1/patients \
+    -H "Authorization: Bearer $PATIENT_TOKEN" -H 'Content-Type: application/json' \
+    -d "{\"id\":\"$PATIENT_ID\",\"firstName\":\"Aya\",\"lastName\":\"Hosni\",\"dateOfBirth\":\"1990-05-01\",\"email\":\"aya@example.com\",\"phoneNumber\":\"555-1234\"}"
+
+  curl -s -X POST http://localhost:8082/api/v1/patients/$PATIENT_ID/consent -H "Authorization: Bearer $PATIENT_TOKEN"
+  curl -s http://localhost:8082/api/v1/patients/$PATIENT_ID -H "Authorization: Bearer $PATIENT_TOKEN" | jq
+  curl -s -X DELETE http://localhost:8082/api/v1/patients/$PATIENT_ID/consent -H "Authorization: Bearer $PATIENT_TOKEN"
+
+--- Doctor availability (section 2) ---
+
+  DOCTOR_RESP=$(curl -s -X POST http://localhost:8083/api/v1/doctors \
+    -H "Authorization: Bearer $ADMIN" -H 'Content-Type: application/json' \
+    -d '{"id":"'$(uuidgen)'","firstName":"Amina","lastName":"Nasser","specialty":"Cardiology","departmentName":"Cardiology"}')
+  DOCTOR_ID=$(echo "$DOCTOR_RESP" | jq -r .id)
+
+  curl -s -X POST http://localhost:8083/api/v1/doctors/$DOCTOR_ID/availability \
+    -H "Authorization: Bearer $ADMIN" -H 'Content-Type: application/json' \
+    -d '{"dayOfWeek":"MONDAY","startTime":"09:00:00","endTime":"17:00:00"}'
+
+  curl -s http://localhost:8083/api/v1/doctors/$DOCTOR_ID/availability | jq
+
+--- Appointment lifecycle + schedule check (section 3) ---
+
+Pick a scheduledStart that actually falls on a Monday between 09:00-17:00 UTC to hit the slot
+above, or outside it to prove the new DOCTOR_UNAVAILABLE rejection works. Example values used
+below (adjust the date to an actual upcoming Monday):
+
+  inside slot : 2026-08-31T10:00:00Z
+  outside slot: 2026-08-31T20:00:00Z
+
+  # Book inside the slot -- should succeed
+  curl -s -X POST http://localhost:8084/api/v1/appointments \
+    -H "Authorization: Bearer $PATIENT_TOKEN" -H 'Content-Type: application/json' \
+    -d "{\"patientId\":\"$PATIENT_ID\",\"doctorId\":\"$DOCTOR_ID\",\"scheduledStart\":\"2026-08-31T10:00:00Z\",\"scheduledEnd\":\"2026-08-31T10:30:00Z\",\"idempotencyKey\":\"$(uuidgen)\"}"
+  APPT_ID=...  # from the response
+
+  # Book outside the slot -- should 422 DOCTOR_UNAVAILABLE
+  curl -s -X POST http://localhost:8084/api/v1/appointments \
+    -H "Authorization: Bearer $PATIENT_TOKEN" -H 'Content-Type: application/json' \
+    -d "{\"patientId\":\"$PATIENT_ID\",\"doctorId\":\"$DOCTOR_ID\",\"scheduledStart\":\"2026-08-31T20:00:00Z\",\"scheduledEnd\":\"2026-08-31T20:30:00Z\",\"idempotencyKey\":\"$(uuidgen)\"}"
+
+  # Lifecycle
+  curl -s -X POST http://localhost:8084/api/v1/appointments/$APPT_ID/check-in -H "Authorization: Bearer $ADMIN"
+  curl -s -X POST http://localhost:8084/api/v1/appointments/$APPT_ID/complete -H "Authorization: Bearer $ADMIN"
+
+For no-show, book a separate appointment, don't check in, and either call
+POST /{id}/no-show manually or wait for AppointmentNoShowJob (runs at the top of every hour,
+marks anything still SCHEDULED 30+ minutes past its start).
+
+
+3. WATCHING KAFKA
+----------------------------------------------------------------
+
+Kafka here runs SASL_SSL with per-service credentials, so you can't just point a bare console
+consumer at localhost:9092. Easiest way is to exec into the broker container, which already
+has the certs mounted, and consume with the admin credentials:
+
+  docker compose exec kafka bash -c '
+  cat > /tmp/client.properties <<EOF
+  security.protocol=SASL_SSL
+  sasl.mechanism=PLAIN
+  sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username="admin" password="local-dev-kafka-admin-pass";
+  ssl.truststore.location=/etc/kafka/secrets/kafka.truststore.p12
+  ssl.truststore.password=changeit
+  ssl.truststore.type=PKCS12
+  EOF
+  kafka-console-consumer.sh --bootstrap-server localhost:9092 \
+    --topic appointment.events --consumer.config /tmp/client.properties --from-beginning'
+
+Swap --topic for whichever you care about: patient.events, doctor.events (no availability
+events published there today -- availability is REST-only, no Kafka), appointment.events,
+billing.events, notification.requests, audit.events.
+
+One thing worth knowing: every publish in this codebase goes through the OUTBOX PATTERN -- the
+event lands in an outbox_events DB row in the same transaction as the write, and OutboxRelay
+polls every 2 SECONDS to actually ship it to Kafka. So after a POST /appointments or
+POST /consent call, give it up to ~2s before it shows up in the consumer.
+
+You can also skip Kafka-watching entirely and just check the outbox table directly for a
+faster/simpler signal that publishing happened:
+
+  docker compose exec postgres psql -U appointment_user -d appointment_db \
+    -c "select event_type, payload, sent_at from outbox_events order by created_at desc limit 5;" 2>/dev/null \
+  || docker compose exec postgres psql -U appointment_user -d appointment_db \
+    -c "select topic, message_key, sent_at from outbox_events order by created_at desc limit 5;"
+
+(column list may differ slightly -- run \d outbox_events in psql if the query above doesn't match)

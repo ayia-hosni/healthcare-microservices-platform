@@ -47,4 +47,16 @@ public class PatientController {
     public ResponseEntity<PatientResponse> updatePhone(@PathVariable UUID id, @RequestParam String phoneNumber) {
         return ResponseEntity.ok(patientService.updatePhoneNumber(id, phoneNumber));
     }
+
+    @PostMapping("/{id}/consent")
+    @PreAuthorize("hasAnyRole('ADMIN','PATIENT')")
+    public ResponseEntity<PatientResponse> grantConsent(@PathVariable UUID id) {
+        return ResponseEntity.ok(patientService.grantConsent(id));
+    }
+
+    @DeleteMapping("/{id}/consent")
+    @PreAuthorize("hasAnyRole('ADMIN','PATIENT')")
+    public ResponseEntity<PatientResponse> revokeConsent(@PathVariable UUID id) {
+        return ResponseEntity.ok(patientService.revokeConsent(id));
+    }
 }

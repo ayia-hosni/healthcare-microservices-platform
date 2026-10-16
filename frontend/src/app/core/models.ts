@@ -14,7 +14,23 @@ export interface AuthResponse {
   accessTokenExpiresInSeconds: number;
 }
 
+export type StaffRole = 'ROLE_ADMIN' | 'ROLE_DOCTOR' | 'ROLE_NURSE' | 'ROLE_BILLING_CLERK';
+
+export interface CreateStaffAccountRequest {
+  email: string;
+  password: string;
+  role: StaffRole;
+}
+
+export interface StaffAccountResponse {
+  id: string;
+  email: string;
+  role: StaffRole;
+}
+
 export interface DecodedToken {
+  /** OpenID Connect issuer — must match environment.authIssuerUri or the token is rejected. */
+  iss: string;
   sub: string;
   email: string;
   roles: string[];
@@ -54,6 +70,19 @@ export interface DoctorResponse {
   lastName: string;
   specialty: string;
   departmentName: string;
+}
+
+export interface AvailabilitySlotResponse {
+  id: string;
+  dayOfWeek: string; // java.time.DayOfWeek name, e.g. "MONDAY" — all times UTC
+  startTime: string; // "HH:mm:ss"
+  endTime: string;
+}
+
+export interface AvailabilitySlotRequest {
+  dayOfWeek: string;
+  startTime: string;
+  endTime: string;
 }
 
 export type AppointmentStatus = 'SCHEDULED' | 'CANCELLED' | 'COMPLETED' | 'RESCHEDULED' | string;

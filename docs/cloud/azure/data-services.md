@@ -229,6 +229,18 @@ RabbitMQ and Event Hubs have distinct responsibilities:
 This avoids using a single messaging technology for fundamentally different
 communication patterns.
 
+**Why this one service gets a queue and the others don't:**
+`audit-service`/`analytics-service` consume the same Kafka topics but only
+do a fast local DB write — Kafka's own consumer retry/DLT is sufficient.
+`notification-service` calls a slow, unreliable, external email/SMS/push
+provider. Since a Kafka partition is consumed in order by one consumer,
+calling that provider directly from the listener would block every
+unrelated message behind a single slow/failed send. RabbitMQ decouples
+"receiving the job" from "making the external call," so each message gets
+its own retry/backoff without stalling the partition — see
+[`../aws/README.md#rabbitmq`](../aws/README.md#rabbitmq) for the full
+before/after diagram of that failure mode.
+
 ---
 
 # Object Storage — Azure Blob Storage

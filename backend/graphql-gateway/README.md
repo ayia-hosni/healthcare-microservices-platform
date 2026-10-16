@@ -84,7 +84,7 @@ Four data fetchers, two transports, one shared auth-forwarding mechanism.
           Each downstream service (appointment-service,
           billing-service) runs its OWN JWT verification exactly
           as it would for a direct caller — shared verification
-          logic (common's JwtVerifier), not shared trust
+          logic (common's PlatformSecurityConfig, JWKS-backed), not shared trust
 
 
 ══════════════════════════════════════════════════════════════════════════════════════════════

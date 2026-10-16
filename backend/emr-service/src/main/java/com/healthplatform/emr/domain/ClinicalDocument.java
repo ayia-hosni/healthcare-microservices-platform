@@ -1,5 +1,6 @@
 package com.healthplatform.emr.domain;
 
+import com.healthplatform.common.crypto.EncryptedStringConverter;
 import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.UUID;
@@ -41,7 +42,8 @@ public class ClinicalDocument {
     @Column(nullable = false)
     private String typeDisplay;
 
-    @Column(nullable = false)
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String title;
 
     @Column(nullable = false)

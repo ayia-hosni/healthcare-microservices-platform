@@ -1,0 +1,21 @@
+# Copy to terraform.tfvars (gitignored).
+
+region = "us-east-1"
+
+# CIDRs allowed to reach the public EKS API server (kubectl/Helm/CI). Your egress /32s.
+eks_public_access_cidrs = [
+  "203.0.113.4/32",
+]
+
+# kafka_mode must match 30-data's value.
+# kafka_mode            = "self-hosted"
+# eks_app_node_min_size = 0
+
+# If you overrode tf_state_bucket in aws/bootstrap, set it here too (and in backend.tf).
+# tf_state_bucket = "healthcare-platform-tfstate-xxxx"
+
+tags = {
+  project   = "healthcare-platform"
+  managedby = "terraform"
+  owner     = "CHANGEME"
+}

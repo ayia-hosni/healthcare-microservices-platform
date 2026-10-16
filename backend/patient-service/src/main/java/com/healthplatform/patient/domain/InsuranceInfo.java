@@ -1,18 +1,23 @@
 package com.healthplatform.patient.domain;
 
+import com.healthplatform.common.crypto.EncryptedStringConverter;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Embeddable;
 
 @Embeddable
 public class InsuranceInfo {
 
-    @Column(name = "insurance_provider")
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(name = "insurance_provider", columnDefinition = "TEXT")
     private String provider;
 
-    @Column(name = "insurance_policy_number")
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(name = "insurance_policy_number", columnDefinition = "TEXT")
     private String policyNumber;
 
-    @Column(name = "insurance_group_number")
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(name = "insurance_group_number", columnDefinition = "TEXT")
     private String groupNumber;
 
     protected InsuranceInfo() {}

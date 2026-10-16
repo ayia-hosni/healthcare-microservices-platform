@@ -7,13 +7,17 @@ import com.healthplatform.appointment.repository.AppointmentRepository;
 import com.healthplatform.appointment.web.dto.AppointmentResponse;
 import com.healthplatform.appointment.web.dto.BookAppointmentRequest;
 import com.healthplatform.common.events.AppointmentCancelledEvent;
+import com.healthplatform.common.events.AppointmentCompletedEvent;
 import com.healthplatform.common.events.AppointmentCreatedEvent;
+import com.healthplatform.common.events.AppointmentNoShowEvent;
+import com.healthplatform.common.events.AppointmentRescheduledEvent;
 import com.healthplatform.common.exception.BusinessException;
 import com.healthplatform.common.exception.ResourceNotFoundException;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.UUID;
 
 /**
@@ -60,10 +64,11 @@ public class AppointmentService {
             return toResponse(existing.get());
         }
 
-        // Synchronous existence checks via gRPC (PatientLookup/DoctorLookup) — previously
-        // this trusted a client-supplied patientId/doctorId outright.
+        // Validate the client-supplied ids and requested time against doctor-service over gRPC
+        // (PatientLookup / DoctorLookup / DoctorAvailability) before touching the DB.
         bookingValidationClient.requirePatientExists(request.patientId());
         bookingValidationClient.requireDoctorExists(request.doctorId());
+        bookingValidationClient.requireDoctorAvailable(request.doctorId(), request.scheduledStart(), request.scheduledEnd());
 
         appointmentRepository.findConflicting(request.doctorId(), request.scheduledStart())
                 .ifPresent(a -> {
@@ -99,8 +104,11 @@ public class AppointmentService {
     }
 
     @Transactional
-    public AppointmentResponse reschedule(UUID id, java.time.Instant newStart, java.time.Instant newEnd) {
+    public AppointmentResponse reschedule(UUID id, Instant newStart, Instant newEnd) {
         Appointment appointment = getOrThrow(id);
+        Instant previousStart = appointment.getScheduledStart();
+
+        bookingValidationClient.requireDoctorAvailable(appointment.getDoctorId(), newStart, newEnd);
 
         appointmentRepository.findConflicting(appointment.getDoctorId(), newStart)
                 .filter(other -> !other.getId().equals(id))
@@ -109,6 +117,50 @@ public class AppointmentService {
                 });
 
         appointment.reschedule(newStart, newEnd);
+
+        eventPublisher.publishRescheduled(
+                appointment.getId().toString(),
+                new AppointmentRescheduledEvent(appointment.getId().toString(), previousStart, newStart, newEnd),
+                MDC.get("correlationId")
+        );
+
+        return toResponse(appointment);
+    }
+
+    @Transactional
+    public AppointmentResponse checkIn(UUID id) {
+        Appointment appointment = getOrThrow(id);
+        appointment.confirm();
+        return toResponse(appointment);
+    }
+
+    @Transactional
+    public AppointmentResponse complete(UUID id) {
+        Appointment appointment = getOrThrow(id);
+        appointment.complete();
+
+        eventPublisher.publishCompleted(
+                appointment.getId().toString(),
+                new AppointmentCompletedEvent(appointment.getId().toString(),
+                        appointment.getPatientId().toString(), appointment.getDoctorId().toString()),
+                MDC.get("correlationId")
+        );
+
+        return toResponse(appointment);
+    }
+
+    @Transactional
+    public AppointmentResponse markNoShow(UUID id) {
+        Appointment appointment = getOrThrow(id);
+        appointment.markNoShow();
+
+        eventPublisher.publishNoShow(
+                appointment.getId().toString(),
+                new AppointmentNoShowEvent(appointment.getId().toString(),
+                        appointment.getPatientId().toString(), appointment.getDoctorId().toString()),
+                MDC.get("correlationId")
+        );
+
         return toResponse(appointment);
     }
 
@@ -120,6 +172,12 @@ public class AppointmentService {
     @Transactional(readOnly = true)
     public java.util.List<AppointmentResponse> getByPatientId(UUID patientId) {
         return appointmentRepository.findAllByPatientIdOrderByScheduledStartDesc(patientId).stream()
+                .map(this::toResponse).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.List<AppointmentResponse> getByDoctorId(UUID doctorId) {
+        return appointmentRepository.findAllByDoctorIdOrderByScheduledStartDesc(doctorId).stream()
                 .map(this::toResponse).toList();
     }
 

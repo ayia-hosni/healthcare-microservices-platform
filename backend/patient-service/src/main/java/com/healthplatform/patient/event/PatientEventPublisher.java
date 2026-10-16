@@ -1,7 +1,10 @@
 package com.healthplatform.patient.event;
 
+import com.healthplatform.common.events.ConsentGrantedEvent;
+import com.healthplatform.common.events.ConsentRevokedEvent;
 import com.healthplatform.common.events.DomainEvent;
 import com.healthplatform.common.events.PatientRegisteredEvent;
+import com.healthplatform.common.events.PatientUpdatedEvent;
 import com.healthplatform.common.events.Topics;
 import com.healthplatform.common.outbox.OutboxWriter;
 import org.springframework.stereotype.Component;
@@ -18,6 +21,21 @@ public class PatientEventPublisher {
 
     public void publishPatientRegistered(String patientId, PatientRegisteredEvent payload, String correlationId) {
         var event = DomainEvent.of(patientId, "PatientRegisteredEvent", correlationId, payload);
+        outboxWriter.enqueue(Topics.PATIENT_EVENTS, patientId, event);
+    }
+
+    public void publishPatientUpdated(String patientId, PatientUpdatedEvent payload, String correlationId) {
+        var event = DomainEvent.of(patientId, "PatientUpdatedEvent", correlationId, payload);
+        outboxWriter.enqueue(Topics.PATIENT_EVENTS, patientId, event);
+    }
+
+    public void publishConsentGranted(String patientId, ConsentGrantedEvent payload, String correlationId) {
+        var event = DomainEvent.of(patientId, "ConsentGrantedEvent", correlationId, payload);
+        outboxWriter.enqueue(Topics.PATIENT_EVENTS, patientId, event);
+    }
+
+    public void publishConsentRevoked(String patientId, ConsentRevokedEvent payload, String correlationId) {
+        var event = DomainEvent.of(patientId, "ConsentRevokedEvent", correlationId, payload);
         outboxWriter.enqueue(Topics.PATIENT_EVENTS, patientId, event);
     }
 }

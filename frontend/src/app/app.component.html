@@ -1,4 +1,73 @@
-<div class="app-container" *ngIf="auth.isLoggedIn">
+<div class="admin-container" *ngIf="auth.isLoggedIn && auth.isAdmin">
+  <aside class="admin-sidebar">
+    <a class="admin-logo" routerLink="/admin">
+      <i class="fa-solid fa-shield-halved"></i>
+      <span>Admin Console</span>
+    </a>
+
+    <ul class="admin-nav-menu">
+      <li>
+        <a routerLink="/admin" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
+          <i class="fa-solid fa-gauge-high"></i> <span>Overview</span>
+        </a>
+      </li>
+      <li>
+        <a routerLink="/admin/staff" routerLinkActive="active">
+          <i class="fa-solid fa-user-shield"></i> <span>Staff accounts</span>
+        </a>
+      </li>
+      <li>
+        <a routerLink="/doctors" routerLinkActive="active">
+          <i class="fa-solid fa-user-doctor"></i> <span>Doctors</span>
+        </a>
+      </li>
+      <li>
+        <a routerLink="/admin/doctors/create" routerLinkActive="active">
+          <i class="fa-solid fa-user-plus"></i> <span>Add doctor</span>
+        </a>
+      </li>
+      <li>
+        <a routerLink="/admin/doctors/schedule" routerLinkActive="active">
+          <i class="fa-regular fa-clock"></i> <span>Doctor schedule</span>
+        </a>
+      </li>
+      <li>
+        <a routerLink="/patients" routerLinkActive="active">
+          <i class="fa-solid fa-hospital-user"></i> <span>Patients</span>
+        </a>
+      </li>
+      <li>
+        <a routerLink="/appointments" routerLinkActive="active">
+          <i class="fa-regular fa-calendar-check"></i> <span>Appointments</span>
+        </a>
+      </li>
+      <li>
+        <a routerLink="/billing" routerLinkActive="active">
+          <i class="fa-solid fa-file-invoice-dollar"></i> <span>Billing</span>
+        </a>
+      </li>
+    </ul>
+
+    <div class="admin-badge">
+      <i class="fa-solid fa-lock"></i>
+      <span>Administrator access</span>
+    </div>
+
+    <button type="button" class="admin-user-profile" (click)="auth.logout()" title="Log out">
+      <div class="admin-avatar-circle">{{ initials }}</div>
+      <div class="admin-user-info">
+        <h4>{{ auth.currentUser()?.email }}</h4>
+        <p>Log out</p>
+      </div>
+    </button>
+  </aside>
+
+  <main class="admin-main-content">
+    <router-outlet />
+  </main>
+</div>
+
+<div class="app-container" *ngIf="auth.isLoggedIn && !auth.isAdmin">
   <aside class="sidebar">
     <a class="logo" routerLink="/">
       <i class="fa-solid fa-staff-snake"></i>
@@ -19,6 +88,11 @@
       <li class="nav-item">
         <a routerLink="/doctors" routerLinkActive="active">
           <i class="fa-solid fa-user-doctor"></i> <span>Doctors</span>
+        </a>
+      </li>
+      <li class="nav-item" *ngIf="auth.canManageSchedule">
+        <a routerLink="/admin/doctors/schedule" routerLinkActive="active">
+          <i class="fa-regular fa-clock"></i> <span>Doctor schedule</span>
         </a>
       </li>
       <li class="nav-item">

@@ -1,13 +1,13 @@
 package com.healthplatform.patient.web;
 
 import com.healthplatform.common.outbox.OutboxEventRepository;
+import com.healthplatform.common.security.test.TestJwtSupport;
 import com.healthplatform.patient.web.dto.PatientRequest;
 import com.healthplatform.patient.web.dto.PatientResponse;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpEntity;
@@ -22,17 +22,18 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.time.LocalDate;
-import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * End-to-end proof that PatientController + PatientService + Flyway migrations + JPA mappings +
- * the shared PlatformSecurityConfig JWT chain (from `common`) all wire up correctly against a
- * real Postgres instance.
+ * the shared PlatformSecurityConfig OAuth2 resource-server chain (from `common`) all wire up
+ * correctly against a real Postgres instance. TestJwtConfig swaps the network JWKS decoder for
+ * a local test key so no identity-service is needed.
  */
 @Testcontainers
+@Import(TestJwtSupport.TestJwtConfig.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class PatientControllerIntegrationTest {
 
@@ -54,6 +55,9 @@ class PatientControllerIntegrationTest {
         registry.add("spring.kafka.properties.security.protocol", () -> "PLAINTEXT");
         registry.add("spring.kafka.properties.sasl.mechanism", () -> "");
         registry.add("spring.kafka.properties.sasl.jaas.config", () -> "");
+        // Fake issuer/JWKS so the real decoder bean can be built; TestJwtConfig's @Primary
+        // decoder is what actually verifies (against the local test key).
+        TestJwtSupport.registerProperties(registry);
     }
 
     @LocalServerPort
@@ -65,14 +69,9 @@ class PatientControllerIntegrationTest {
     @Autowired
     private OutboxEventRepository outboxEventRepository;
 
-    private String jwtFor(String username, String... roles) {
-        var key = Keys.hmacShaKeyFor("change-me-in-production-this-must-be-at-least-32-bytes-long".getBytes());
-        return Jwts.builder().subject(username).claim("roles", List.of(roles)).signWith(key).compact();
-    }
-
     private HttpHeaders authHeaders(String... roles) {
         HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(jwtFor("aya", roles));
+        headers.setBearerAuth(TestJwtSupport.mint("aya", roles));
         headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
         return headers;
     }
@@ -123,6 +122,35 @@ class PatientControllerIntegrationTest {
 
         assertThat(response.getStatusCode().is4xxClientError()).isTrue();
         assertThat(response.getStatusCode()).isNotEqualTo(HttpStatus.CREATED);
+    }
+
+    @Test
+    void grantThenRevokeConsentRoundTripsThroughRealDatabase() {
+        UUID id = UUID.randomUUID();
+        PatientRequest request = new PatientRequest(id, "Sam", "Nolan",
+                LocalDate.of(1988, 2, 2), "sam@example.com", "555-0000");
+        restTemplate.exchange(url("/api/v1/patients"), HttpMethod.POST,
+                new HttpEntity<>(request, authHeaders("ROLE_ADMIN")), PatientResponse.class);
+
+        ResponseEntity<PatientResponse> grantResponse = restTemplate.exchange(
+                url("/api/v1/patients/" + id + "/consent"), HttpMethod.POST,
+                new HttpEntity<>(authHeaders("ROLE_PATIENT")), PatientResponse.class);
+
+        assertThat(grantResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(grantResponse.getBody()).isNotNull();
+        assertThat(grantResponse.getBody().consentGranted()).isTrue();
+        assertThat(grantResponse.getBody().consentUpdatedAt()).isNotNull();
+
+        ResponseEntity<PatientResponse> revokeResponse = restTemplate.exchange(
+                url("/api/v1/patients/" + id + "/consent"), HttpMethod.DELETE,
+                new HttpEntity<>(authHeaders("ROLE_PATIENT")), PatientResponse.class);
+
+        assertThat(revokeResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(revokeResponse.getBody()).isNotNull();
+        assertThat(revokeResponse.getBody().consentGranted()).isFalse();
+
+        assertThat(outboxEventRepository.findAll())
+                .anyMatch(event -> event.getMessageKey().equals(id.toString()));
     }
 
     @Test

@@ -1,7 +1,7 @@
 package com.healthplatform.analytics;
 
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
+import com.healthplatform.common.security.test.TestJwtSupport;
+import org.springframework.context.annotation.Import;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -40,10 +40,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Testcontainers
+@Import(TestJwtSupport.TestJwtConfig.class)
 class AnalyticsServiceIntegrationTest {
 
-    private static final byte[] JWT_SECRET =
-            "change-me-in-production-this-must-be-at-least-32-bytes-long".getBytes();
 
     @Container
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine")
@@ -56,6 +55,7 @@ class AnalyticsServiceIntegrationTest {
         registry.add("spring.datasource.url", postgres::getJdbcUrl);
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);
+        TestJwtSupport.registerProperties(registry);
 
         registry.add("spring.kafka.listener.auto-startup", () -> "false");
         registry.add("KAFKA_SASL_USERNAME", () -> "test-user");
@@ -72,8 +72,7 @@ class AnalyticsServiceIntegrationTest {
     TestRestTemplate restTemplate;
 
     private String jwtFor(String username, String... roles) {
-        var key = Keys.hmacShaKeyFor(JWT_SECRET);
-        return Jwts.builder().subject(username).claim("roles", List.of(roles)).signWith(key).compact();
+        return TestJwtSupport.mint(username, roles);
     }
 
     private String url(String path) {

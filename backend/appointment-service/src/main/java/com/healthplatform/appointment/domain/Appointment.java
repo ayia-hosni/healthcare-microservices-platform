@@ -86,6 +86,23 @@ public class Appointment {
         this.status = AppointmentStatus.SCHEDULED;
     }
 
+    /** Allowed from SCHEDULED as well as CONFIRMED: check-in is optional (walk-ins). */
+    public void complete() {
+        if (status == AppointmentStatus.CANCELLED || status == AppointmentStatus.COMPLETED || status == AppointmentStatus.NO_SHOW) {
+            throw new BusinessException("INVALID_STATE_TRANSITION", "Cannot complete a " + status + " appointment");
+        }
+        this.status = AppointmentStatus.COMPLETED;
+    }
+
+    /** Only from SCHEDULED: once checked in (CONFIRMED) the patient has shown up. */
+    public void markNoShow() {
+        if (status != AppointmentStatus.SCHEDULED) {
+            throw new BusinessException("INVALID_STATE_TRANSITION",
+                    "Only a scheduled, not-yet-checked-in appointment can be marked no-show (was " + status + ")");
+        }
+        this.status = AppointmentStatus.NO_SHOW;
+    }
+
     public UUID getId() { return id; }
     public UUID getPatientId() { return patientId; }
     public UUID getDoctorId() { return doctorId; }

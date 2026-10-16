@@ -37,9 +37,17 @@ spring:
 
 app:
   jwt:
-    secret: ${JWT_SECRET:change-me-in-production-this-must-be-at-least-32-bytes-long}
+    # Verify identity-service RS256 access tokens against its JWKS (no signing secret here).
+    jwks-uri: ${JWT_JWKS_URI:http://localhost:8081/oauth2/jwks}
+    issuer-uri: ${JWT_ISSUER_URI:http://localhost:8081}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:https://app.example-health.com}
+  field-encryption:
+    # 32 zero bytes, base64 — insecure placeholder, same pattern as app.jwt.secret above.
+    # Real deployments override via FIELD_ENCRYPTION_KEY (see docker-compose.yml /
+    # infra/k8s/base/secrets.yaml). Must decode to exactly 32 bytes (AES-256) — see
+    # AesGcmCipher in common/crypto.
+    key: ${FIELD_ENCRYPTION_KEY:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
 
 # REST client (RestClientConfig/DownstreamServicesProperties) for patient lookups. Default
 # matches running each service directly on localhost, same pattern as

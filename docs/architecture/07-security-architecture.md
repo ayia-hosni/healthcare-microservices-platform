@@ -146,7 +146,7 @@ The architecture establishes three major security zones:
       └─────────┬─────────┘
                 │
                 ▼
-          JwtVerifier
+     JWKS-backed JwtDecoder
                 │
           ┌─────┴─────┐
           ▼           ▼
@@ -174,10 +174,11 @@ JWT
 Business Service
  │
  ▼
-JwtVerifier
+JWKS-backed JwtDecoder
  │
- ├── Signature
+ ├── Signature (RS256, key from JWKS)
  ├── Expiration
+ ├── Issuer
  ├── Claims
  └── Roles
 ```
@@ -188,10 +189,11 @@ This keeps authentication verification local and avoids turning `identity-servic
 
 # 3. JWT Architecture
 
-The current implementation uses **HS256 symmetric signing**.
+Access tokens are **RS256-signed**: `identity-service` holds the private key, every other
+service verifies with the public key from its JWKS endpoint. No shared signing secret.
 
-```text id="jwt-hs256"
-                  SHARED SECRET
+```text id="jwt-rs256"
+                  PRIVATE KEY / JWKS
                        │
           ┌────────────┴────────────┐
           │                         │
@@ -207,14 +209,14 @@ The current implementation uses **HS256 symmetric signing**.
                       JWT
 ```
 
-The shared verification implementation lives in `common`:
+The shared verification implementation lives in `common` (`PlatformSecurityConfig`):
 
 ```text id="jwt-common"
                   common
                     │
                     ▼
               ┌────────────┐
-              │ JwtVerifier│
+              │ JwtDecoder │  (Nimbus, JWKS-backed)
               └─────┬──────┘
                     │
         ┌───────────┼────────────┐
@@ -228,46 +230,24 @@ The shared verification implementation lives in `common`:
               JWT Verification
 ```
 
-The shared component means the verification mechanism can be migrated centrally when the signing strategy changes.
-
-### Current model
-
-```text
-HS256
-Shared symmetric secret
-        │
-        ├── identity-service
-        ├── patient-service
-        ├── doctor-service
-        ├── appointment-service
-        ├── emr-service
-        ├── billing-service
-        ├── notification-service
-        ├── audit-service
-        ├── analytics-service
-        └── graphql-gateway
-```
-
-### Target production model
+### Model
 
 ```text
                   Private Signing Key
                          │
                          ▼
-                identity-service
-                         │
-                         │ RS256
-                         ▼
-                       JWT
-                         │
-                         ▼
-                    Services
-                         │
-                         ▼
-                  Public Key / JWKS
+                identity-service ──────► /oauth2/jwks
+                         │                    │
+                         │ RS256              │ Public Key (JWKS)
+                         ▼                    ▼
+                       JWT ───────────►  Every other service
+                                         (OAuth2 resource server)
 ```
 
-RS256/JWKS is a planned production-hardening step rather than the current implementation.
+`identity-service` signs RS256 with a private key and publishes the public half at
+`/oauth2/jwks` (discovery at `/.well-known/openid-configuration`). No service holds a signing
+secret. See [ADR-0007](../adr/0007-rs256-jwks-token-verification.md). Single key today; JWKS
+multi-key rotation is still on the roadmap.
 
 ---
 
@@ -667,7 +647,7 @@ Security ownership is distributed by responsibility.
 │ Component              │ Security Responsibility              │
 ├────────────────────────┼──────────────────────────────────────┤
 │ identity-service       │ Authentication + token issuance      │
-│ common/JwtVerifier     │ JWT signature/claim verification     │
+│ common/PlatformSecurityConfig │ JWT signature/claim verification (JWKS) │
 │ Business services      │ Endpoint authorization + RBAC        │
 │ NGINX Ingress          │ Public network boundary              │
 │ Kubernetes             │ Runtime/network isolation            │
@@ -701,23 +681,18 @@ This allows each service to protect its own domain operations.
 
 The current architecture has several explicitly identified production-hardening areas.
 
-### Shared HMAC signing key
+### Signing-key rotation
 
 ```text
-Current
-
 identity-service
-       │
+       │  RS256 private key (single)
        ▼
-   HS256 Secret
-       │
-       ├──► Service A
-       ├──► Service B
-       ├──► Service C
-       └──► ...
+   /oauth2/jwks ──► Service A, Service B, Service C, ...
 ```
 
-A compromise of the shared secret could allow token forgery.
+Signing is asymmetric — only `identity-service` can mint tokens — but the JWKS serves a
+single key with no rotation mechanism yet. Adding a second key + overlap window is the next
+step.
 
 The target architecture is:
 
@@ -781,39 +756,28 @@ A future zero-trust design can introduce service identity and authenticated serv
 The security hardening direction is:
 
 ```text id="production-security"
-CURRENT
+DONE
    │
    ▼
-HS256 + Shared Secret
+RS256 / JWKS public-key verification
    │
    ▼
-Development Configuration
-   │
-   ▼
-Default Kubernetes Network Trust
-   │
-   │
-   ├───────────────────────────────┐
-   ▼                               ▼
-RS256 / JWKS                  Secrets Manager
-   │                               │
-   ▼                               ▼
-Public-Key Verification       Managed Secrets
-   │                               │
-   └───────────────┬───────────────┘
-                   ▼
-          Kubernetes Network Policies
-                   │
-                   ▼
-          Authenticated Service Identity
-                   │
-                   ▼
-             Hardened Platform
+Default Kubernetes Network Trust  ──►  Secrets Manager / Managed Secrets
+   │                                            │
+   └────────────────────┬───────────────────────┘
+                        ▼
+               Kubernetes Network Policies
+                        │
+                        ▼
+               Authenticated Service Identity
+                        │
+                        ▼
+                  Hardened Platform
 ```
 
 Future security improvements can include:
 
-* RS256/JWKS asymmetric token verification
+* multi-key JWKS with automated signing-key rotation
 * managed secrets and automated secret rotation
 * Kubernetes `NetworkPolicy`
 * authenticated service-to-service communication
@@ -840,4 +804,4 @@ These should be introduced incrementally rather than conflated with the current 
 | [ADR-0003 — SOAP Payer Eligibility](../adr/0003-soap-payer-eligibility-integration.md) | External payer isolation                    |
 | [Path to Production](../../README.md#path-to-production)                               | Production-hardening roadmap                |
 
-> **Security Architecture:** Authentication is centralized at `identity-service`, while JWT verification and authorization are distributed across the business services. NGINX Ingress forms the public boundary, application services form the protected application layer, and databases/brokers/object storage remain private infrastructure. The current design is explicit about its trust assumptions—particularly HS256 shared-secret JWTs and unauthenticated internal gRPC lookups—while keeping the path toward RS256/JWKS, managed secrets, network policies, and stronger service identity clear.
+> **Security Architecture:** Authentication is centralized at `identity-service`, while JWT verification and authorization are distributed across the business services. NGINX Ingress forms the public boundary, application services form the protected application layer, and databases/brokers/object storage remain private infrastructure. Token verification is RS256 against `identity-service`'s JWKS (no shared secret); the design stays explicit about its remaining trust assumptions—unauthenticated internal gRPC lookups, single signing key, no NetworkPolicies—while keeping the path toward managed secrets, network policies, and stronger service identity clear.

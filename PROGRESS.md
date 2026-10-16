@@ -52,7 +52,7 @@ The project distinguishes between:
 | Elasticsearch (provisioned, no indexing consumers yet) | 🏗️ Partial |
 | Bulkhead isolation | 🏗️ Designed |
 | Orchestrated saga compensation | 🏗️ Designed |
-| RS256 / JWKS authentication | 🏗️ Designed |
+| RS256 / JWKS authentication | ✅ Implemented (self-hosted; single key, no rotation yet) |
 | Distributed / global rate limiting | 🏗️ Designed |
 | OpenTelemetry migration | 🏗️ Designed |
 | Horizontal Pod Autoscaling | 📋 Planned |
@@ -81,14 +81,16 @@ The project distinguishes between:
 
 These are documented target architectures — not claims about what's deployed today.
 
-### Authentication: RS256 / JWKS
+### Authentication: RS256 / JWKS — implemented
 
-Today's `identity-service` issues, and `common`'s `JwtVerifier` checks, a shared HS256
-development secret (`Keys.hmacShaKeyFor`). The designed evolution:
+`identity-service` signs access tokens RS256 with a private key and publishes the public half
+at `/oauth2/jwks` (plus an OpenID discovery document at `/.well-known/openid-configuration`).
+Every other service is a Spring Security OAuth2 resource server that verifies against that JWKS
+and holds no signing key. See [ADR-0007](docs/adr/0007-rs256-jwks-token-verification.md).
 
 ```text
                     ┌──────────────────────┐
-                    │ Identity Provider    │
+                    │ identity-service     │
                     │ Private Signing Key  │
                     └──────────┬───────────┘
                                │ RS256
@@ -104,7 +106,7 @@ development secret (`Keys.hmacShaKeyFor`). The designed evolution:
               └──── Validate JWT Signature ────┘
 ```
 
-Security roadmap: RS256/JWKS + key rotation, external secret management, Kubernetes
+Still on the roadmap: multi-key JWKS + rotation, external secret management, Kubernetes
 NetworkPolicies, service-to-service mTLS, distributed rate limiting, extended audit trails.
 
 ### Observability: OpenTelemetry
@@ -213,7 +215,8 @@ implemented, actively used · `████████████████�
 
 ### Security
 
-* [ ] RS256 JWT signing + JWKS endpoint + key rotation
+* [x] RS256 JWT signing + JWKS endpoint (single key; rotation still TODO)
+* [ ] JWKS multi-key support + key rotation
 * [ ] External secret management
 * [ ] Kubernetes NetworkPolicies
 * [ ] mTLS between services

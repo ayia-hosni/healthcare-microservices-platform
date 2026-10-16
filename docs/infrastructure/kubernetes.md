@@ -57,6 +57,22 @@ tearing down — see
 Unlike Docker Compose, the frontend runs **inside** the cluster here
 (`infra/k8s/base/frontend.yaml`).
 
+## Browsing the databases
+
+The dev overlay also deploys **Adminer** (`infra/k8s/overlays/dev/datastores/adminer.yaml`) —
+a ClusterIP Service, same as `postgres` itself, not exposed through the Ingress. Reach it with:
+
+```bash
+kubectl -n healthcare-platform port-forward svc/adminer 8091:8080
+```
+
+then open `http://localhost:8091` and log in with System = PostgreSQL, Server = `postgres`
+(resolves cluster-internally to the `postgres` Service), and either the `postgres` superuser
+(`dev-only-postgres-superuser-pw`) or one service's own `<service>_user` /
+`healthcare-dev-db-pw` from `secrets-dev.yaml` — see
+[`../operations/endpoints.md`](../operations/endpoints.md) for the equivalent Docker Compose
+login.
+
 See [`../../infra/k8s/README.md`](../../infra/k8s/README.md) for the full manifest layout,
 [`../cloud/azure/README.md`](../cloud/azure/README.md) for the AKS target this same
 configuration deploys to in the cloud, and [`gitops.md`](gitops.md) for how Argo CD keeps the

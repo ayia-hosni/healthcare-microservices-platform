@@ -10,9 +10,14 @@
       <i class="fa-solid fa-rotate-left"></i> Show all
     </button>
   </div>
-  <button type="submit" class="create-btn" (click)="search()" [disabled]="loading || !specialty.trim()">
-    <i class="fa-solid fa-magnifying-glass"></i> Search
-  </button>
+  <div class="toolbar-left">
+    <button type="submit" class="create-btn" (click)="search()" [disabled]="loading || !specialty.trim()">
+      <i class="fa-solid fa-magnifying-glass"></i> Search
+    </button>
+    <a *ngIf="auth.isAdmin" routerLink="/admin/doctors/create">
+      <button type="button" class="create-btn"><i class="fa-solid fa-plus"></i> Add doctor</button>
+    </a>
+  </div>
 </div>
 
 <p class="error" *ngIf="error">{{ error }}</p>

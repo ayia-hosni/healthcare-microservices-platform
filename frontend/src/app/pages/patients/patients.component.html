@@ -12,6 +12,7 @@
   </button>
 </div>
 
+<p class="muted" *ngIf="isDoctorView">Showing only patients you have an appointment with.</p>
 <p class="muted" *ngIf="loading">Loading…</p>
 <p class="error" *ngIf="error">{{ error }}</p>
 

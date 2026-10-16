@@ -1,0 +1,44 @@
+<h2 class="admin-header-title">Admin Console</h2>
+<p class="admin-header-sub">Signed in as {{ auth.currentUser()?.email }} · System administrator</p>
+
+<div class="admin-cards-grid">
+  <a routerLink="/admin/staff" class="admin-action-card">
+    <div class="admin-action-icon"><i class="fa-solid fa-user-shield"></i></div>
+    <div>
+      <h3>Create staff account</h3>
+      <p>Provision an admin, doctor, nurse, or billing clerk login.</p>
+    </div>
+  </a>
+
+  <a routerLink="/doctors" class="admin-action-card">
+    <div class="admin-action-icon"><i class="fa-solid fa-user-doctor"></i></div>
+    <div>
+      <h3>Doctors</h3>
+      <p>Manage clinician profiles, specialties, and working hours.</p>
+    </div>
+  </a>
+
+  <a routerLink="/patients" class="admin-action-card">
+    <div class="admin-action-icon"><i class="fa-solid fa-hospital-user"></i></div>
+    <div>
+      <h3>Patients</h3>
+      <p>Browse registered patient records.</p>
+    </div>
+  </a>
+
+  <a routerLink="/appointments" class="admin-action-card">
+    <div class="admin-action-icon"><i class="fa-regular fa-calendar-check"></i></div>
+    <div>
+      <h3>Appointments</h3>
+      <p>Review scheduled, completed, and cancelled visits.</p>
+    </div>
+  </a>
+
+  <a routerLink="/billing" class="admin-action-card">
+    <div class="admin-action-icon"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+    <div>
+      <h3>Billing</h3>
+      <p>Track invoices and payment status.</p>
+    </div>
+  </a>
+</div>

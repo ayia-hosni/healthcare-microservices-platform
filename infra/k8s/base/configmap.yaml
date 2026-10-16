@@ -5,6 +5,11 @@ metadata:
   namespace: healthcare-platform
 data:
   KAFKA_BOOTSTRAP_SERVERS: "kafka.healthcare-platform.svc.cluster.local:9092"
+  # RS256 auth: identity-service signs, everyone verifies against its JWKS. Not secret — the
+  # issuer URL and the JWKS URL are public. The RSA keys themselves are in platform-secrets
+  # (identity-service only).
+  JWT_ISSUER_URI: "http://identity-service.healthcare-platform.svc.cluster.local:8081"
+  JWT_JWKS_URI: "http://identity-service.healthcare-platform.svc.cluster.local:8081/oauth2/jwks"
   REDIS_HOST: "redis.healthcare-platform.svc.cluster.local"
   REDIS_PORT: "6379"
   RABBITMQ_HOST: "rabbitmq.healthcare-platform.svc.cluster.local"

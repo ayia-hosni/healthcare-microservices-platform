@@ -898,6 +898,204 @@ code {
   margin-top: 1.75rem;
 }
 
+/* --- Availability picker (create appointment modal) --- */
+
+.modal-content.wide {
+  max-width: 640px;
+}
+
+.picker-doctor {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem 1rem;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 1.25rem;
+}
+
+.picker-avatar {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--primary-light);
+  color: var(--primary-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+.picker-doctor-info strong {
+  display: block;
+  font-size: 0.92rem;
+  color: var(--text);
+}
+
+.picker-doctor-info span {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.picker-week {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.7rem;
+}
+
+.picker-week-label {
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.picker-week-nav {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.picker-week-nav button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+}
+
+.picker-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.4rem;
+  margin-bottom: 1.1rem;
+}
+
+.picker-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 0.5rem 0.15rem 0.55rem;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--text);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.picker-day:hover:not(:disabled) {
+  border-color: var(--primary);
+}
+
+.picker-day.active {
+  background: var(--primary-light);
+  border-color: var(--primary);
+}
+
+.picker-day:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.picker-day .pd-name {
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.picker-day.active .pd-name {
+  color: var(--primary-dark);
+}
+
+.picker-day .pd-num {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.picker-day .pd-count {
+  font-size: 0.6rem;
+  color: var(--primary-dark);
+  font-weight: 600;
+}
+
+.picker-day .pd-count.none {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.picker-slots-empty {
+  padding: 1.6rem 0.5rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.picker-period {
+  margin-bottom: 0.9rem;
+}
+
+.picker-period-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+
+.picker-slot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 0.5rem;
+}
+
+.picker-slot {
+  padding: 0.5rem 0.3rem;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--text);
+  background: var(--surface-alt);
+  border: 1.5px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.picker-slot:hover {
+  border-color: var(--primary);
+}
+
+.picker-slot.selected {
+  background: var(--primary);
+  color: white;
+}
+
+.picker-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.7rem 1rem;
+  margin-top: 0.35rem;
+  background: var(--primary-light);
+  border-radius: var(--radius);
+  color: var(--primary-dark);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
 /* --- Patient / doctor cards --- */
 
 .cards-grid {
@@ -1233,5 +1431,384 @@ code {
     grid-template-columns: 1fr;
     min-width: 0;
     gap: 0.4rem;
+  }
+
+  .modal-content.wide {
+    padding: 1.25rem;
+  }
+
+  .picker-days {
+    gap: 0.3rem;
+  }
+
+  .picker-day {
+    padding: 0.4rem 0 0.45rem;
+  }
+
+  .picker-slot-grid {
+    grid-template-columns: repeat(auto-fill, minmax(62px, 1fr));
+  }
+}
+
+/* ============================================================
+   Admin Console — deliberately distinct from the patient/staff app
+   (dark slate sidebar + indigo accent vs. the teal patient shell):
+   signals "privileged area," not clinical care.
+   ============================================================ */
+
+.admin-container {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  background: #f3f4f8;
+}
+
+.admin-sidebar {
+  width: 250px;
+  flex-shrink: 0;
+  background: #171b2b;
+  color: #b7bcd6;
+  display: flex;
+  flex-direction: column;
+  padding: 2rem 1.25rem;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.admin-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 2.25rem;
+  text-decoration: none;
+}
+
+.admin-logo i {
+  color: #7c8cf8;
+  font-size: 1.2rem;
+}
+
+.admin-nav-menu {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  flex: 1;
+}
+
+.admin-nav-menu a {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.75rem 1rem;
+  text-decoration: none;
+  color: #9498b8;
+  font-weight: 500;
+  font-size: 0.9rem;
+  border-radius: 10px;
+  transition: all 0.15s ease;
+}
+
+.admin-nav-menu a:hover {
+  background: rgba(124, 140, 248, 0.1);
+  color: #e4e6f7;
+}
+
+.admin-nav-menu a.active {
+  background: rgba(124, 140, 248, 0.16);
+  color: #ffffff;
+}
+
+.admin-nav-menu a i {
+  width: 18px;
+  text-align: center;
+  color: #7c8cf8;
+}
+
+.admin-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.85rem;
+  margin-bottom: 0.9rem;
+  background: rgba(124, 140, 248, 0.1);
+  border: 1px solid rgba(124, 140, 248, 0.25);
+  border-radius: 8px;
+  color: #a9b0ee;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.admin-user-profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0.8rem;
+  border-radius: 10px;
+  cursor: pointer;
+  border: none;
+  background: rgba(255, 255, 255, 0.04);
+  width: 100%;
+  text-align: left;
+}
+
+.admin-user-profile:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.admin-avatar-circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #7c8cf8;
+  color: #171b2b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.admin-user-info h4 {
+  margin: 0;
+  font-size: 0.84rem;
+  color: #fff;
+  font-weight: 600;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-user-info p {
+  margin: 2px 0 0;
+  font-size: 0.74rem;
+  color: #8489ab;
+}
+
+.admin-main-content {
+  flex: 1;
+  padding: 2.5rem 2.75rem;
+  max-width: 1100px;
+}
+
+.admin-header-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #171b2b;
+  letter-spacing: -0.01em;
+}
+
+.admin-header-sub {
+  margin: 0 0 2rem;
+  color: #6b7094;
+  font-size: 0.92rem;
+}
+
+.admin-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1.1rem;
+}
+
+.admin-action-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  background: #ffffff;
+  border: 1px solid #e4e5f2;
+  border-radius: 14px;
+  padding: 1.35rem;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.admin-action-card:hover {
+  transform: translateY(-2px);
+  border-color: #7c8cf8;
+  box-shadow: 0 12px 24px -12px rgba(23, 27, 43, 0.18);
+}
+
+.admin-action-icon {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: rgba(124, 140, 248, 0.12);
+  color: #5563e0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+}
+
+.admin-action-card h3 {
+  margin: 0 0 0.25rem;
+  font-size: 0.98rem;
+  color: #171b2b;
+}
+
+.admin-action-card p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #6b7094;
+  line-height: 1.45;
+}
+
+.admin-panel {
+  background: #ffffff;
+  border: 1px solid #e4e5f2;
+  border-radius: 14px;
+  padding: 1.75rem;
+  margin-bottom: 1.5rem;
+  max-width: 640px;
+}
+
+.admin-panel-title {
+  margin: 0 0 1rem;
+  font-size: 0.98rem;
+  color: #171b2b;
+}
+
+.admin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.admin-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.admin-field {
+  display: block;
+  margin-bottom: 1rem;
+  font-size: 0.83rem;
+  font-weight: 500;
+  color: #6b7094;
+}
+
+.admin-field input,
+.admin-field select {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 0.7rem 0.85rem;
+  border: 1.5px solid #e4e5f2;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  color: #171b2b;
+  background: #fff;
+}
+
+.admin-field input:focus,
+.admin-field select:focus {
+  outline: none;
+  border-color: #7c8cf8;
+  box-shadow: 0 0 0 3px rgba(124, 140, 248, 0.15);
+}
+
+.admin-btn-primary {
+  align-self: flex-start;
+  background: #5563e0;
+  color: #fff;
+  border: none;
+  padding: 0.7rem 1.5rem;
+  border-radius: 8px;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  margin-top: 0.5rem;
+  transition: background 0.15s ease;
+}
+
+.admin-btn-primary:hover:not(:disabled) {
+  background: #4652c9;
+}
+
+.admin-btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.admin-error {
+  color: #d94f4f;
+  background: #fdeeee;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.86rem;
+  font-weight: 500;
+  margin: 0.4rem 0 0;
+}
+
+.admin-receipt-row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #eef0f8;
+}
+
+.admin-receipt-row:last-child {
+  border-bottom: none;
+}
+
+.admin-receipt-icon {
+  color: #37c7a5;
+  font-size: 1.05rem;
+}
+
+.admin-receipt-info strong {
+  display: block;
+  font-size: 0.88rem;
+  color: #171b2b;
+}
+
+.admin-receipt-info span {
+  font-size: 0.78rem;
+  color: #6b7094;
+}
+
+@media (max-width: 900px) {
+  .admin-sidebar {
+    width: 76px;
+    padding: 1.5rem 0.75rem;
+  }
+
+  .admin-logo span,
+  .admin-nav-menu a span,
+  .admin-user-info,
+  .admin-badge span {
+    display: none;
+  }
+
+  .admin-nav-menu a {
+    justify-content: center;
+    padding: 0.8rem;
+  }
+
+  .admin-main-content {
+    padding: 1.5rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .admin-form-row {
+    grid-template-columns: 1fr;
   }
 }

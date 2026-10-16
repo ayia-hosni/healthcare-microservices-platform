@@ -1,5 +1,10 @@
 x-common-env: &common-env
-  JWT_SECRET: local-dev-secret-key-please-change-in-production-32bytes
+  # Auth is RS256 now: identity-service signs with a private key and publishes the public half
+  # at /oauth2/jwks; every other service verifies against that. No shared signing secret.
+  # JWT_ISSUER_URI doubles as identity-service's own issuer id (its `iss` claim) and the value
+  # downstream services require in that claim.
+  JWT_ISSUER_URI: http://identity-service:8081
+  JWT_JWKS_URI: http://identity-service:8081/oauth2/jwks
   KAFKA_BOOTSTRAP_SERVERS: kafka:9092
   REDIS_HOST: redis
   REDIS_PORT: 6379
@@ -53,6 +58,18 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  # Web UI for browsing the 9 databases above — login with the postgres/postgres
+  # superuser, or any service's own DB_USER/DB_PASSWORD from docker-compose above,
+  # server: postgres, against whichever *_db you want to look at.
+  adminer:
+    image: adminer:4.8.1
+    restart: unless-stopped
+    ports:
+      - "8091:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   redis:
     image: redis:7-alpine
@@ -302,6 +319,16 @@ services:
       DB_PASSWORD: identity_pass
       KAFKA_SASL_USERNAME: identity
       KAFKA_SASL_PASSWORD: local-dev-identity-pass
+      # PHI field encryption (see backend/common/.../crypto/) — only the three services that
+      # actually store PHI declare these, not the shared x-common-env anchor. identity-service
+      # additionally needs the HMAC key for its login-email blind index (see AuthService).
+      FIELD_ENCRYPTION_KEY: 82bm/2eq3J9mkrdKjZfMxe1XsWte8+iysjYtrwUeyr4=
+      FIELD_ENCRYPTION_HMAC_KEY: xbk6AhQFpc/Q9ys/7o4auQLok4P8XUZCf9pX94gR6m0=
+      # Dev only: seeds admin@healthplatform.local / SeedStaff-2026! on startup (see
+      # DevBootstrapAdmin) so seed.sh and humans have a first admin to log in as. Uses the
+      # insecure dev RSA keypair baked into identity-service's application.yml — override
+      # JWT_RSA_PRIVATE_KEY / JWT_RSA_PUBLIC_KEY for anything real.
+      BOOTSTRAP_ADMIN_ENABLED: "true"
     volumes:
       - ./infra/docker/kafka/certs/kafka.truststore.p12:/etc/kafka/certs/kafka.truststore.p12:ro
     ports:
@@ -325,6 +352,8 @@ services:
       DB_PASSWORD: patient_pass
       KAFKA_SASL_USERNAME: patient
       KAFKA_SASL_PASSWORD: local-dev-patient-pass
+      # Must match identity-service's/emr-service's FIELD_ENCRYPTION_KEY — see that comment.
+      FIELD_ENCRYPTION_KEY: 82bm/2eq3J9mkrdKjZfMxe1XsWte8+iysjYtrwUeyr4=
     volumes:
       - ./infra/docker/kafka/certs/kafka.truststore.p12:/etc/kafka/certs/kafka.truststore.p12:ro
     ports:
@@ -348,6 +377,10 @@ services:
       DB_PASSWORD: doctor_pass
       KAFKA_SASL_USERNAME: doctor
       KAFKA_SASL_PASSWORD: local-dev-doctor-pass
+      # Local/dev convenience only (AvailabilitySeeder) — backfills Mon-Fri 09:00-17:00 hours
+      # for any doctor with none, so seed.sh-created doctors are actually bookable without a
+      # manual availability API call. Off by default; never set in a real deployment.
+      SEED_AVAILABILITY_ENABLED: "true"
     volumes:
       - ./infra/docker/kafka/certs/kafka.truststore.p12:/etc/kafka/certs/kafka.truststore.p12:ro
     ports:
@@ -404,6 +437,8 @@ services:
       MINIO_ENDPOINT: http://minio:9000
       KAFKA_SASL_USERNAME: emr
       KAFKA_SASL_PASSWORD: local-dev-emr-pass
+      # Must match identity-service's/patient-service's FIELD_ENCRYPTION_KEY — see that comment.
+      FIELD_ENCRYPTION_KEY: 82bm/2eq3J9mkrdKjZfMxe1XsWte8+iysjYtrwUeyr4=
     volumes:
       - ./infra/docker/kafka/certs/kafka.truststore.p12:/etc/kafka/certs/kafka.truststore.p12:ro
     ports:

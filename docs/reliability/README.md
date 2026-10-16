@@ -122,13 +122,14 @@ independently verify JWTs using the shared verification component.
 Client
    │
    ▼
-Identity Service ──Access Token──► Business Services ──► JWT Verification (common's JwtVerifier)
+Identity Service ──RS256 Access Token──► Business Services ──► JWKS verification (common's PlatformSecurityConfig)
 ```
 
-The architecture intentionally separates **token issuance** from **token verification**. The
-current implementation uses a shared HS256 development secret (`Keys.hmacShaKeyFor`). The
-designed RS256/JWKS evolution and the wider security roadmap are tracked in
-[`../../PROGRESS.md`](../../PROGRESS.md#designed-not-yet-built).
+The architecture intentionally separates **token issuance** from **token verification**:
+`identity-service` signs RS256 with a private key and publishes the public key at
+`/oauth2/jwks`; every other service verifies against it and holds no signing secret (see
+[ADR-0007](../adr/0007-rs256-jwks-token-verification.md)). Remaining hardening (key rotation,
+managed secrets, mTLS) is tracked in [`../../PROGRESS.md`](../../PROGRESS.md).
 
 ---
 

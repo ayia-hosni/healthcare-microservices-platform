@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
   - ../../base
   - datastores/postgres.yaml
+  - datastores/adminer.yaml
   - datastores/redis.yaml
   - datastores/zookeeper.yaml
   - datastores/kafka.yaml
@@ -67,6 +68,9 @@ patches:
         name: platform-config
       data:
         PAYER_ELIGIBILITY_URL: "http://payer-mock.healthcare-platform.svc.cluster.local:8080/ws"
+        # Dev only: identity-service seeds admin@healthplatform.local / SeedStaff-2026! on
+        # startup (other services ignore this var).
+        BOOTSTRAP_ADMIN_ENABLED: "true"
 
   # Real, working dev credentials in place of base's placeholder secrets. Values here are
   # deliberately paired with the datastore manifests: DB_PASSWORD matches the password baked
@@ -84,7 +88,12 @@ patches:
       metadata:
         name: platform-secrets
       stringData:
-        JWT_SECRET: local-dev-secret-key-please-change-in-production-32bytes
+        # Insecure dev RS256 keypair (base64 DER). Same value baked into identity-service's
+        # application.yml default; here so a k8s dev deploy has stable keys too.
+        JWT_RSA_PRIVATE_KEY: MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCmB72eram+colNBkxDLe15wDvpfXSHqmuBFvEeMAGaGX0hmIOqjItA2eFrMKgNHJ2ldjHSFs2u0ySKbtFuuFJ3zjyFrX984BKrIdBzUuZmH+9wReV8zh4/oor3KfZi7Os5eAMH3/sLR54bfl1Ur437DSH3cQBp4az+D46cDV+QwoYuxfR0CKwrABeQFlWemV5kfmUbvQR8/STtdtFJNBFjgnA2wqfzn4ANq2T7vr+GwJZBaKUzs+sDPPx+BIOMPUIbf5vJFDk/PqaHXIW2hXzuFBZtexz3G8x1PN5sWpgnQJ1aGiWuyYBnf38BuunF+KEuVOZi9gKK5J13djhUdggPAgMBAAECggEASxAV2Q8fvpQu4g12Xir+Afz4uUP4cruINgkmwuSmXMKoUY+P+4PmE1BOOzV4zNDCr0NkG90maaNZEmMuuZWI51RtBWzexhjSJ9+2S+VPeB15FbPsIIRZpaB5nmww0iHV6RoKmL1ZVQywfTKgxIBIOxgBYssKilQ273geHAxpx9qG6uobKka/Q+5pMYN2N3Pd/oZs34NtJLK1tcJbb9ryyJqbtkILgmZ1XwqihTKJyW9NwV0Bar+nyJdUAL+sEsotywR3RAv2Itn8oeOXQtR7hRUKOEfVMwwgRWzsd6/cCNVEoCbp25KWu9EecFaVlBJtPqiBjJ5pagiu4C+CPlefFQKBgQDlmbsVi3hTsSWLskitTP20i/WsCqUoR+Qz3ARPS0fvVYyRPEKC9x69hlvPMIywyGCUFmWg+mQTsSdmmSmqHCKwuFUn2ybvWmXJGWfBx8WvhBhJOE43RZFRrtEh4z9hAeTAaLeeNDg9hUJZxH9k4V2AV7GUlRoOOl0LQ+YiQIeMywKBgQC5HtMvXHZKjRA0SHNH3LUm64IfcFRqtxIfBCHmG0K456JYVDmimH6rxDFe0ZEq0dca/UlUvhUsykMPwbf5szwU+BijkyThot7op2xjw+5xT4XhNxw8L4bzosQbkhoiLMYRFy4t3C/2kS3l3Wjy+6Yet3DhrDKsk6ltiMNkMrMtTQKBgGNhUlA2CUQ4hibcaYbRr3MJrbHk/a3cyFMGJbtou19F6U0oByYG7wBb+rtIqW0PnnYa56xxFQZNBN/s5dLi0MUrVHim7EhoGWydGYMQBGo/Q//VZk2YSBlSEOWZJmLH3grGiMvqkHlYh+qxGe9BeSZHTu8gRqHn80QgBKnIwqNXAoGAdh6GEA1GaVFTCplD/ZGFgTz6fUb2hlUj2eiQHLw+Oa+LNiMf13DIOp9oBSFhKFpWj6EYHltfNYIlgjNQSaKk7phTWGQ2P0bmRrs1fP7y8RgVy9uXR4vn5yNvUExMIoxBIXyR+a8qZ4DBMY+yPIB3wde4zjZK6zUZAYwnaJK1I20CgYAV+e9kxaZtWjPFzTY5H3t6D0bZZzI9CryAZ4xYbInI5fOCRQ/rDz+S9LFYQ9BQ9YFaUzlCzHhk0zCT22tnCCtiGLU4V28nrJf1g1wagt9ATaDY7j+nzfuxnyNhkNuW3gjE3MC2XxkJveR7TEfRCEH6koSFnUZOf49SDLb3b1qOCg==
+        JWT_RSA_PUBLIC_KEY: MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApge9nq2pvnKJTQZMQy3tecA76X10h6prgRbxHjABmhl9IZiDqoyLQNnhazCoDRydpXYx0hbNrtMkim7RbrhSd848ha1/fOASqyHQc1LmZh/vcEXlfM4eP6KK9yn2YuzrOXgDB9/7C0eeG35dVK+N+w0h93EAaeGs/g+OnA1fkMKGLsX0dAisKwAXkBZVnpleZH5lG70EfP0k7XbRSTQRY4JwNsKn85+ADatk+76/hsCWQWilM7PrAzz8fgSDjD1CG3+byRQ5Pz6mh1yFtoV87hQWbXsc9xvMdTzebFqYJ0CdWholrsmAZ39/AbrpxfihLlTmYvYCiuSdd3Y4VHYIDwIDAQAB
+        FIELD_ENCRYPTION_KEY: 82bm/2eq3J9mkrdKjZfMxe1XsWte8+iysjYtrwUeyr4=
+        FIELD_ENCRYPTION_HMAC_KEY: xbk6AhQFpc/Q9ys/7o4auQLok4P8XUZCf9pX94gR6m0=
         DB_PASSWORD: healthcare-dev-db-pw
         RABBITMQ_USER: notification_service
         RABBITMQ_PASSWORD: local-dev-rabbitmq-pass

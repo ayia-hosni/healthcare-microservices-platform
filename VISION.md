@@ -260,7 +260,7 @@ emr-service.
 | Vision item | Status |
 | --- | --- |
 | Core microservices (identity/patient/doctor/appointment/emr/billing/notification/audit/analytics + GraphQL BFF) | ✅ Built |
-| JWT auth + RBAC | ✅ Built |
+| JWT auth (RS256 + JWKS) + RBAC | ✅ Built |
 | PHI field-level encryption at rest | ✅ Built |
 | Async messaging (Kafka + RabbitMQ), transactional outbox | ✅ Built |
 | MinIO document storage + partial FHIR `DocumentReference` | ✅ Built |
@@ -268,7 +268,7 @@ emr-service.
 | Public marketing site (Home/Features/Demo/About/Contact) | ❌ Not started |
 | MFA / SSO / Passkey login | ❌ Not started |
 | ABAC / Break-glass access | ❌ Not started |
-| Consent management | ❌ Not started |
+| Consent management | ✅ Built — patient-service grant/revoke consent flag, `ConsentGranted`/`ConsentRevoked` events |
 | AI Clinical Copilot (summaries, note generation, OCR, risk prediction) | ❌ Not started |
 | HL7 integration, external hospital/lab/insurance interoperability | ❌ Not started |
 | "FHIR R4 Layer" as a platform-wide layer (vs. today's single `DocumentReference` resource) | ❌ Not started |
@@ -282,6 +282,6 @@ emr-service.
 | Multi-portal frontend split (clinical / patient / admin) | ❌ Not started — one shared Angular SPA today |
 
 Legend: ✅ implemented and running · 🏗️ partially in place (infra exists, not wired up) ·
-🚧 in progress · ❌ not started. Infrastructure-level roadmap items (RS256/JWKS, mTLS, HPA,
+🚧 in progress · ❌ not started. Infrastructure-level roadmap items (mTLS, HPA, key rotation,
 etc.) are tracked separately in `PROGRESS.md` and are not repeated here — this file is about
 product surface area, that one is about production-readiness of what already exists.

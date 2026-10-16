@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Single-node k3s host (Traefik ingress, local-path storage). Reuses the dev overlay wholesale —
+# same trimmed resources, relaxed probes, plaintext Kafka, in-cluster datastores — and changes
+# only what differs from minikube: images come from GHCR instead of minikube's docker daemon,
+# and the Ingress is served by Traefik instead of ingress-nginx.
+#
+# .github/workflows/ci.yml's deploy job runs `kustomize edit set image` (pins every app image to
+# ghcr.io/<owner>/healthcare-platform/<svc>:<sha>) and adds the CORS patch for the public origin
+# before piping `kustomize build` to the server. Committed as-is it still builds, using :latest.
+resources:
+  - ../dev
+
+patches:
+  - path: patches/ingress-traefik.yaml
+    target: { kind: Ingress, name: platform-gateway }
+
+  # GHCR packages are private by default; the deploy job creates this pull secret.
+  - path: patches/image-pull-secret.yaml
+    target: { kind: Deployment }

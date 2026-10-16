@@ -7,10 +7,10 @@
 **Database role:** `identity_user`
 **Kafka / RabbitMQ:** none — this service has no domain events
 
-The Identity Service is the platform's single point of authentication. Every other service
-trusts a JWT this service issued, verified independently using the shared `common`
-`JwtVerifier` — there's no per-request call back to identity-service to check a token; it
-issues, everyone else validates on their own.
+The Identity Service is the platform's single point of authentication. It signs RS256 access
+tokens with a private key and publishes the public half at `/oauth2/jwks`. Every other service
+is an OAuth2 resource server (shared `common` `PlatformSecurityConfig`) that verifies against
+that JWKS — no per-request call back here, and no service holds a signing key.
 
 ---
 
@@ -19,7 +19,7 @@ issues, everyone else validates on their own.
 | Capability                | Description                                                                     |
 | --------------------------- | ----------------------------------------------------------------------------- |
 | 📝 Self-service registration | New accounts always start as `ROLE_PATIENT` — elevated roles are admin-granted |
-| 🔑 Stateless access tokens   | Short-lived HS256 JWTs, never checked against the database on verification    |
+| 🔑 Stateless access tokens   | Short-lived RS256 JWTs (JWKS-published key), never checked against the database on verification |
 | 🔁 Refresh token rotation    | Every refresh revokes the presented token and issues a brand new pair          |
 | 🗄️ Server-side revocation    | Refresh tokens are stored hashed, so logout/lock can revoke immediately        |
 | 🚪 Correct HTTP semantics    | An explicit `401` entry point, instead of Spring Security's default `403`     |
@@ -114,7 +114,7 @@ request, and cleaning up what's left behind.
     ┌───────────────┐      ┌────────────────────────────────┐
     │   JwtService   │      │   generateOpaqueToken() +      │
     │                │      │   SHA-256 hash it               │
-    │  HS256, claims:│      │                                  │
+    │  RS256, claims:│      │                                  │
     │  sub, email,   │      │   RefreshToken saved:            │
     │  roles         │      │   (userId, tokenHash, expiresAt) │
     └───────┬───────┘      └────────────────┬────────────────┘
@@ -183,17 +183,16 @@ request, and cleaning up what's left behind.
                        │
                        ▼
     ┌──────────────────────────────────────────────┐
-    │        JwtAuthenticationFilter                 │
-    │        (OncePerRequestFilter, added before     │
-    │         UsernamePasswordAuthenticationFilter)  │
+    │   Spring Security oauth2ResourceServer().jwt() │
+    │   (BearerTokenAuthenticationFilter)            │
     │                                                │
     │  header starts with "Bearer "?                 │
     └──────────────────┬───────────────────────────┘
                        │
                        ▼
     ┌──────────────────────────────────────────────┐
-    │        JwtService.parseAndValidate(token)      │
-    │        — signature + expiry check, HS256       │
+    │   NimbusJwtDecoder — RS256 signature + expiry  │
+    │   + issuer check (RsaKeyConfig's local key)    │
     └──────────────────┬───────────────────────────┘
                        │
               ┌─────────┴─────────┐
@@ -346,12 +345,12 @@ simply lacks the required *role* still correctly falls through to `403`.
 
 # 🚀 Where This Is Headed
 
-Signing moves from a shared HS256 secret to RS256, with identity-service holding the private
-key and publishing a JWKS endpoint — downstream services verify against the public key
-instead of needing key material capable of issuing tokens. Key rotation and external secret
-management come with it, so the signing secret stops being a value every service's config has
-to know. See [`../../PROGRESS.md`](../../PROGRESS.md#designed-not-yet-built) for where this
-sits relative to the rest of the platform's security roadmap.
+RS256 signing + a JWKS endpoint are **done** (see
+[ADR-0007](../../docs/adr/0007-rs256-jwks-token-verification.md)). Still ahead: a multi-key
+JWKS with automated signing-key rotation, and moving the RSA keys into external secret
+management. A redirect-based OAuth2 flow (Authorization Code + PKCE) instead of credential
+POST is possible later — the published `issuer` / `jwks_uri` keep that option open. See
+[`../../PROGRESS.md`](../../PROGRESS.md) for the wider security roadmap.
 
 ---
 

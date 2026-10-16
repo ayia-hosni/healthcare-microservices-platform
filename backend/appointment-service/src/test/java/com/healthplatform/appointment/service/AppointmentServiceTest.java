@@ -106,6 +106,22 @@ class AppointmentServiceTest {
     }
 
     @Test
+    void bookThrowsWhenDoctorIsNotAvailableAtRequestedTime() {
+        when(appointmentRepository.findByIdempotencyKey("key-unavailable")).thenReturn(Optional.empty());
+        doThrow(new BusinessException("DOCTOR_UNAVAILABLE", "Doctor is not available at the requested time"))
+                .when(bookingValidationClient).requireDoctorAvailable(doctorId, start, end);
+
+        assertThatThrownBy(() -> appointmentService.book(
+                new BookAppointmentRequest(patientId, doctorId, start, end, "key-unavailable")))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("not available");
+
+        verify(appointmentRepository, never()).findConflicting(any(), any());
+        verify(appointmentRepository, never()).save(any());
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
     void rejectsDoubleBookingForSameDoctorAndSlot() {
         when(appointmentRepository.findByIdempotencyKey("key-2")).thenReturn(Optional.empty());
         Appointment existingBooking = new Appointment(UUID.randomUUID(), doctorId, start, end, "other-key");
@@ -168,6 +184,7 @@ class AppointmentServiceTest {
     void reschedulesToNewSlotWhenFree() {
         Appointment appointment = new Appointment(patientId, doctorId, start, end, "key-5");
         UUID id = UUID.randomUUID();
+        setId(appointment, id);
         Instant newStart = start.plus(1, ChronoUnit.DAYS);
         Instant newEnd = newStart.plus(30, ChronoUnit.MINUTES);
         when(appointmentRepository.findById(id)).thenReturn(Optional.of(appointment));
@@ -178,6 +195,26 @@ class AppointmentServiceTest {
         assertThat(response.scheduledStart()).isEqualTo(newStart);
         assertThat(response.scheduledEnd()).isEqualTo(newEnd);
         assertThat(response.status()).isEqualTo(AppointmentStatus.SCHEDULED);
+        verify(bookingValidationClient).requireDoctorAvailable(doctorId, newStart, newEnd);
+        verify(eventPublisher).publishRescheduled(any(), any(), any());
+    }
+
+    @Test
+    void rescheduleThrowsWhenDoctorIsNotAvailableAtNewTime() {
+        Appointment appointment = new Appointment(patientId, doctorId, start, end, "key-unavailable-reschedule");
+        UUID id = UUID.randomUUID();
+        Instant newStart = start.plus(1, ChronoUnit.DAYS);
+        Instant newEnd = newStart.plus(30, ChronoUnit.MINUTES);
+        when(appointmentRepository.findById(id)).thenReturn(Optional.of(appointment));
+        doThrow(new BusinessException("DOCTOR_UNAVAILABLE", "Doctor is not available at the requested time"))
+                .when(bookingValidationClient).requireDoctorAvailable(doctorId, newStart, newEnd);
+
+        assertThatThrownBy(() -> appointmentService.reschedule(id, newStart, newEnd))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("not available");
+
+        verify(appointmentRepository, never()).findConflicting(any(), any());
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test
@@ -232,6 +269,54 @@ class AppointmentServiceTest {
         when(appointmentRepository.findById(id)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> appointmentService.getById(id)).isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void checkInConfirmsAScheduledAppointment() {
+        UUID id = UUID.randomUUID();
+        Appointment appointment = new Appointment(patientId, doctorId, start, end, "key-checkin");
+        when(appointmentRepository.findById(id)).thenReturn(Optional.of(appointment));
+
+        AppointmentResponse response = appointmentService.checkIn(id);
+
+        assertThat(response.status()).isEqualTo(AppointmentStatus.CONFIRMED);
+    }
+
+    @Test
+    void completeMarksAppointmentCompletedAndPublishesEvent() {
+        UUID id = UUID.randomUUID();
+        Appointment appointment = new Appointment(patientId, doctorId, start, end, "key-complete");
+        setId(appointment, id);
+        when(appointmentRepository.findById(id)).thenReturn(Optional.of(appointment));
+
+        AppointmentResponse response = appointmentService.complete(id);
+
+        assertThat(response.status()).isEqualTo(AppointmentStatus.COMPLETED);
+        verify(eventPublisher).publishCompleted(any(), any(), any());
+    }
+
+    @Test
+    void markNoShowMarksAppointmentAndPublishesEvent() {
+        UUID id = UUID.randomUUID();
+        Appointment appointment = new Appointment(patientId, doctorId, start, end, "key-noshow");
+        setId(appointment, id);
+        when(appointmentRepository.findById(id)).thenReturn(Optional.of(appointment));
+
+        AppointmentResponse response = appointmentService.markNoShow(id);
+
+        assertThat(response.status()).isEqualTo(AppointmentStatus.NO_SHOW);
+        verify(eventPublisher).publishNoShow(any(), any(), any());
+    }
+
+    @Test
+    void markNoShowThrowsWhenAppointmentAlreadyConfirmed() {
+        UUID id = UUID.randomUUID();
+        Appointment appointment = new Appointment(patientId, doctorId, start, end, "key-noshow-confirmed");
+        appointment.confirm();
+        when(appointmentRepository.findById(id)).thenReturn(Optional.of(appointment));
+
+        assertThatThrownBy(() -> appointmentService.markNoShow(id)).isInstanceOf(BusinessException.class);
+        verifyNoInteractions(eventPublisher);
     }
 
     /** JPA-generated id is null until persisted; set it via reflection to simulate a fetched/saved row. */

@@ -37,11 +37,6 @@ spec:
                 secretKeyRef:
                   name: platform-secrets
                   key: DB_PASSWORD
-            - name: JWT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: platform-secrets
-                  key: JWT_SECRET
             - name: KAFKA_SASL_USERNAME
               valueFrom:
                 configMapKeyRef:

@@ -1,0 +1,53 @@
+# Dev-only web UI for browsing the 9 databases the postgres.yaml Deployment creates.
+# No env vars needed — Adminer is a login-form tool: server "postgres" (the ClusterIP Service
+# name below is resolvable cluster-wide), then any service's DB_USER/DB_PASSWORD from
+# secrets-dev.yaml, database name = whichever *_db you want to look at.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: adminer
+  namespace: healthcare-platform
+  labels:
+    app: adminer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: adminer
+  template:
+    metadata:
+      labels:
+        app: adminer
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: adminer
+          image: adminer:4.8.1
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "250m"
+              memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: adminer
+  namespace: healthcare-platform
+spec:
+  selector:
+    app: adminer
+  ports:
+    - port: 8080
+      targetPort: 8080
+  type: ClusterIP

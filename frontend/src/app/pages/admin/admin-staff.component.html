@@ -1,0 +1,43 @@
+<h2 class="admin-header-title">Create staff account</h2>
+<p class="admin-header-sub">
+  Patients self-register. Every other role — admin, doctor, nurse, billing clerk — is provisioned here.
+</p>
+
+<div class="admin-panel">
+  <form (ngSubmit)="submit()" #staffForm="ngForm" class="admin-form">
+    <div class="admin-form-row">
+      <label class="admin-field">
+        Email
+        <input type="email" name="email" [(ngModel)]="email" required autocomplete="off" placeholder="name@example.com" />
+      </label>
+      <label class="admin-field">
+        Temporary password
+        <input type="text" name="password" [(ngModel)]="password" required minlength="12" autocomplete="off" placeholder="At least 12 characters" />
+      </label>
+    </div>
+
+    <label class="admin-field">
+      Role
+      <select name="role" [(ngModel)]="role" required>
+        <option *ngFor="let r of roles" [value]="r.value">{{ r.label }}</option>
+      </select>
+    </label>
+
+    <p class="admin-error" *ngIf="createError">{{ createError }}</p>
+
+    <button type="submit" class="admin-btn-primary" [disabled]="staffForm.invalid || creating">
+      {{ creating ? 'Creating…' : 'Create account' }}
+    </button>
+  </form>
+</div>
+
+<div class="admin-panel" *ngIf="created.length">
+  <h3 class="admin-panel-title">Created this session</h3>
+  <div class="admin-receipt-row" *ngFor="let account of created">
+    <div class="admin-receipt-icon"><i class="fa-solid fa-circle-check"></i></div>
+    <div class="admin-receipt-info">
+      <strong>{{ account.email }}</strong>
+      <span>{{ roleLabel(account.role) }} · <code>{{ account.id.slice(0, 8) }}…</code></span>
+    </div>
+  </div>
+</div>

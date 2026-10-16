@@ -238,6 +238,13 @@ it's currently an internal infrastructure component with no requirement to
 change its operational model. Amazon MQ can be evaluated later if a
 managed RabbitMQ becomes operationally valuable.
 
+This isn't queueing for its own sake — see
+[`README.md#rabbitmq`](README.md#rabbitmq) for the concrete scenario
+(isolating a slow/unreliable external notification provider from the
+shared Kafka partition) that actually requires it, and why
+`audit-service`/`analytics-service` deliberately don't have the same
+queue.
+
 ---
 
 # Object Storage — Amazon S3

@@ -1,7 +1,10 @@
 package com.healthplatform.appointment.event;
 
 import com.healthplatform.common.events.AppointmentCancelledEvent;
+import com.healthplatform.common.events.AppointmentCompletedEvent;
 import com.healthplatform.common.events.AppointmentCreatedEvent;
+import com.healthplatform.common.events.AppointmentNoShowEvent;
+import com.healthplatform.common.events.AppointmentRescheduledEvent;
 import com.healthplatform.common.events.DomainEvent;
 import com.healthplatform.common.events.Topics;
 import com.healthplatform.common.outbox.OutboxWriter;
@@ -30,5 +33,20 @@ public class AppointmentEventPublisher {
     public void publishCancelled(String appointmentId, AppointmentCancelledEvent payload, String correlationId) {
         outboxWriter.enqueue(Topics.APPOINTMENT_EVENTS, appointmentId,
                 DomainEvent.of(appointmentId, "AppointmentCancelledEvent", correlationId, payload));
+    }
+
+    public void publishRescheduled(String appointmentId, AppointmentRescheduledEvent payload, String correlationId) {
+        outboxWriter.enqueue(Topics.APPOINTMENT_EVENTS, appointmentId,
+                DomainEvent.of(appointmentId, "AppointmentRescheduledEvent", correlationId, payload));
+    }
+
+    public void publishCompleted(String appointmentId, AppointmentCompletedEvent payload, String correlationId) {
+        outboxWriter.enqueue(Topics.APPOINTMENT_EVENTS, appointmentId,
+                DomainEvent.of(appointmentId, "AppointmentCompletedEvent", correlationId, payload));
+    }
+
+    public void publishNoShow(String appointmentId, AppointmentNoShowEvent payload, String correlationId) {
+        outboxWriter.enqueue(Topics.APPOINTMENT_EVENTS, appointmentId,
+                DomainEvent.of(appointmentId, "AppointmentNoShowEvent", correlationId, payload));
     }
 }

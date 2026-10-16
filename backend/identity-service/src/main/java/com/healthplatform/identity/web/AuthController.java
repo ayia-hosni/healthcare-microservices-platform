@@ -2,14 +2,17 @@ package com.healthplatform.identity.web;
 
 import com.healthplatform.identity.service.AuthService;
 import com.healthplatform.identity.web.dto.AuthResponse;
+import com.healthplatform.identity.web.dto.CreateStaffAccountRequest;
 import com.healthplatform.identity.web.dto.LoginRequest;
 import com.healthplatform.identity.web.dto.RefreshRequest;
 import com.healthplatform.identity.web.dto.RegisterRequest;
+import com.healthplatform.identity.web.dto.StaffAccountResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -27,6 +30,13 @@ public class AuthController {
     @Operation(summary = "Create a new patient account")
     public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(request));
+    }
+
+    @PostMapping("/staff-accounts")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Create an ADMIN/DOCTOR/NURSE/BILLING_CLERK account (admin-only; patients self-register instead)")
+    public ResponseEntity<StaffAccountResponse> createStaffAccount(@Valid @RequestBody CreateStaffAccountRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(authService.createStaffAccount(request));
     }
 
     @PostMapping("/login")

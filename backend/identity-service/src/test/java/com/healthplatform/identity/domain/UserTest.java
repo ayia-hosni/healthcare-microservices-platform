@@ -11,7 +11,7 @@ class UserTest {
 
     @Test
     void newUserIsEnabledAndUnlockedByDefault() {
-        User user = new User("aya@example.com", "hashed", EnumSet.of(Role.ROLE_PATIENT));
+        User user = new User("aya@example.com", "email-hash", "hashed", EnumSet.of(Role.ROLE_PATIENT));
 
         assertThat(user.isEnabled()).isTrue();
         assertThat(user.isAccountLocked()).isFalse();
@@ -19,7 +19,7 @@ class UserTest {
 
     @Test
     void lockSetsAccountLockedTrue() {
-        User user = new User("aya@example.com", "hashed", EnumSet.of(Role.ROLE_PATIENT));
+        User user = new User("aya@example.com", "email-hash", "hashed", EnumSet.of(Role.ROLE_PATIENT));
 
         user.lock();
 
@@ -28,7 +28,7 @@ class UserTest {
 
     @Test
     void unlockClearsAccountLockedFlag() {
-        User user = new User("aya@example.com", "hashed", EnumSet.of(Role.ROLE_PATIENT));
+        User user = new User("aya@example.com", "email-hash", "hashed", EnumSet.of(Role.ROLE_PATIENT));
         user.lock();
 
         user.unlock();
@@ -38,7 +38,7 @@ class UserTest {
 
     @Test
     void disableSetsEnabledFalse() {
-        User user = new User("aya@example.com", "hashed", EnumSet.of(Role.ROLE_PATIENT));
+        User user = new User("aya@example.com", "email-hash", "hashed", EnumSet.of(Role.ROLE_PATIENT));
 
         user.disable();
 
@@ -47,7 +47,7 @@ class UserTest {
 
     @Test
     void roleConstructorSupportsMultipleElevatedRoles() {
-        User user = new User("doc@example.com", "hashed", EnumSet.of(Role.ROLE_DOCTOR, Role.ROLE_ADMIN));
+        User user = new User("doc@example.com", "email-hash", "hashed", EnumSet.of(Role.ROLE_DOCTOR, Role.ROLE_ADMIN));
 
         assertThat(user.getRoles()).containsExactlyInAnyOrder(Role.ROLE_DOCTOR, Role.ROLE_ADMIN);
     }

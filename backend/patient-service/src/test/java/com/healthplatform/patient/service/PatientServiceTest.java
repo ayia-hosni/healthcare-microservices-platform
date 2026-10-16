@@ -1,6 +1,9 @@
 package com.healthplatform.patient.service;
 
+import com.healthplatform.common.events.ConsentGrantedEvent;
+import com.healthplatform.common.events.ConsentRevokedEvent;
 import com.healthplatform.common.events.PatientRegisteredEvent;
+import com.healthplatform.common.events.PatientUpdatedEvent;
 import com.healthplatform.common.exception.ResourceNotFoundException;
 import com.healthplatform.patient.domain.Patient;
 import com.healthplatform.patient.event.PatientEventPublisher;
@@ -82,9 +85,12 @@ class PatientServiceTest {
 
     @Test
     void searchReturnsMappedResults() {
+        // search() loads all patients via findAll() and filters by name in Java (names are
+        // encrypted, so no SQL query); p3 should be filtered out.
         Patient p1 = new Patient(UUID.randomUUID(), "Aya", "Hosni", LocalDate.of(1990, 5, 1), "aya@example.com");
         Patient p2 = new Patient(UUID.randomUUID(), "Amina", "Hosni", LocalDate.of(1985, 3, 3), "amina@example.com");
-        when(patientRepository.searchByName("Hosni")).thenReturn(List.of(p1, p2));
+        Patient p3 = new Patient(UUID.randomUUID(), "Sam", "Nolan", LocalDate.of(1978, 1, 1), "sam@example.com");
+        when(patientRepository.findAll()).thenReturn(List.of(p1, p2, p3));
 
         List<PatientResponse> results = patientService.search("Hosni");
 
@@ -102,6 +108,10 @@ class PatientServiceTest {
 
         assertThat(response.phoneNumber()).isEqualTo("555-9999");
         assertThat(patient.getPhoneNumber()).isEqualTo("555-9999");
+
+        var eventCaptor = org.mockito.ArgumentCaptor.forClass(PatientUpdatedEvent.class);
+        verify(eventPublisher).publishPatientUpdated(eq(id.toString()), eventCaptor.capture(), any());
+        assertThat(eventCaptor.getValue().phoneNumber()).isEqualTo("555-9999");
     }
 
     @Test
@@ -110,6 +120,60 @@ class PatientServiceTest {
         when(patientRepository.findById(id)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> patientService.updatePhoneNumber(id, "555-9999"))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining(id.toString());
+    }
+
+    @Test
+    void grantConsentMarksPatientAndPublishesEvent() {
+        UUID id = UUID.randomUUID();
+        Patient patient = new Patient(id, "Aya", "Hosni", LocalDate.of(1990, 5, 1), "aya@example.com");
+        when(patientRepository.findById(id)).thenReturn(Optional.of(patient));
+
+        PatientResponse response = patientService.grantConsent(id);
+
+        assertThat(response.consentGranted()).isTrue();
+        assertThat(response.consentUpdatedAt()).isNotNull();
+        assertThat(patient.isConsentGranted()).isTrue();
+
+        var eventCaptor = org.mockito.ArgumentCaptor.forClass(ConsentGrantedEvent.class);
+        verify(eventPublisher).publishConsentGranted(eq(id.toString()), eventCaptor.capture(), any());
+        assertThat(eventCaptor.getValue().patientId()).isEqualTo(id.toString());
+    }
+
+    @Test
+    void grantConsentThrowsWhenNotFound() {
+        UUID id = UUID.randomUUID();
+        when(patientRepository.findById(id)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> patientService.grantConsent(id))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining(id.toString());
+    }
+
+    @Test
+    void revokeConsentClearsFlagAndPublishesEvent() {
+        UUID id = UUID.randomUUID();
+        Patient patient = new Patient(id, "Aya", "Hosni", LocalDate.of(1990, 5, 1), "aya@example.com");
+        patient.grantConsent(java.time.Instant.now());
+        when(patientRepository.findById(id)).thenReturn(Optional.of(patient));
+
+        PatientResponse response = patientService.revokeConsent(id);
+
+        assertThat(response.consentGranted()).isFalse();
+        assertThat(patient.isConsentGranted()).isFalse();
+
+        var eventCaptor = org.mockito.ArgumentCaptor.forClass(ConsentRevokedEvent.class);
+        verify(eventPublisher).publishConsentRevoked(eq(id.toString()), eventCaptor.capture(), any());
+        assertThat(eventCaptor.getValue().patientId()).isEqualTo(id.toString());
+    }
+
+    @Test
+    void revokeConsentThrowsWhenNotFound() {
+        UUID id = UUID.randomUUID();
+        when(patientRepository.findById(id)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> patientService.revokeConsent(id))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining(id.toString());
     }

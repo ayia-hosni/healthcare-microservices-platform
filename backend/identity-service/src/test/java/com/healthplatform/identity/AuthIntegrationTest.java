@@ -26,9 +26,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * End-to-end proof, against a real Postgres via Testcontainers, that Flyway migrations, the
- * JPA mappings, and the real SecurityConfig / JwtAuthenticationFilter chain all wire up
- * correctly together. None of the mocked unit tests elsewhere in this module touch any of
- * that -- this is the one that actually boots the Spring context and hits it over HTTP.
+ * JPA mappings, the RS256 signing pipeline (RsaKeyConfig), the resource-server SecurityConfig
+ * chain, and the JWKS / discovery endpoints all wire up together. None of the mocked unit
+ * tests elsewhere touch any of that -- this is the one that boots the context and hits it
+ * over HTTP.
  */
 @Testcontainers
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -122,6 +123,38 @@ class AuthIntegrationTest {
         ResponseEntity<String> refreshAfterLogout = restTemplate.postForEntity(
                 baseUrl() + "/api/v1/auth/refresh", new RefreshRequest(refreshBody.refreshToken()), String.class);
         assertThat(refreshAfterLogout.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    void jwksEndpointServesOnlyThePublicKey() {
+        ResponseEntity<String> jwks = restTemplate.getForEntity(baseUrl() + "/oauth2/jwks", String.class);
+
+        assertThat(jwks.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(jwks.getBody()).contains("\"kty\":\"RSA\"").contains("\"kid\"").contains("\"n\"");
+        assertThat(jwks.getBody()).doesNotContain("\"d\":"); // no private exponent
+    }
+
+    @Test
+    void discoveryDocumentAdvertisesThisIssuerAndItsJwks() {
+        ResponseEntity<String> doc = restTemplate.getForEntity(
+                baseUrl() + "/.well-known/openid-configuration", String.class);
+
+        assertThat(doc.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(doc.getBody())
+                .contains("\"issuer\":\"http://localhost:8081\"")
+                .contains("/oauth2/jwks")
+                .contains("RS256");
+    }
+
+    @Test
+    void bootstrapAdminAccountCanLogIn() {
+        ResponseEntity<AuthResponse> login = restTemplate.postForEntity(
+                baseUrl() + "/api/v1/auth/login",
+                new LoginRequest("admin@healthplatform.local", "SeedStaff-2026!"), AuthResponse.class);
+
+        assertThat(login.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(login.getBody()).isNotNull();
+        assertThat(login.getBody().accessToken()).isNotBlank();
     }
 
     @Test

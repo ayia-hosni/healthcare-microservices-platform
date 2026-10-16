@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { DoctorService } from '../../core/doctor.service';
 import { DoctorResponse } from '../../core/models';
+import { AuthService } from '../../core/auth.service';
 
 @Component({
   selector: 'app-doctors',
@@ -17,7 +18,7 @@ export class DoctorsComponent implements OnInit {
   loading = false;
   searched = false;
 
-  constructor(private doctorService: DoctorService) {}
+  constructor(private doctorService: DoctorService, public auth: AuthService) {}
 
   initials(doctor: DoctorResponse): string {
     return `${doctor.firstName[0] ?? ''}${doctor.lastName[0] ?? ''}`.toUpperCase();

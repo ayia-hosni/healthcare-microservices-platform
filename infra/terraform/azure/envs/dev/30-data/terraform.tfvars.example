@@ -1,0 +1,12 @@
+# Copy to terraform.tfvars (gitignored).
+
+# Same /32s as 20-platform's admin_ip_cidrs — needed here for the DB firewalls during apply.
+admin_ip_cidrs = [
+  "203.0.113.4/32",
+]
+
+tags = {
+  project   = "healthcare-platform"
+  managedby = "terraform"
+  owner     = "CHANGEME"
+}

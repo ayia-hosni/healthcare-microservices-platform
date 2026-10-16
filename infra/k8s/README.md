@@ -395,7 +395,7 @@ These values allow the local cluster to be self-contained.
 `overlays/aks/` deploys the platform to the Azure Kubernetes Service environment provisioned by:
 
 ```text
-infra/terraform/envs/dev/
+infra/terraform/azure/envs/dev/   (layers 10-network → 20-platform → 30-data)
 ```
 
 Unlike the Minikube workflow, the AKS overlay is deployed by CI/CD:
@@ -1138,4 +1138,4 @@ The current implementation already establishes the key boundaries needed for tha
 * [`docs/operations/README.md`](../../docs/operations/README.md) — deployment and operational workflows
 * [ADR-0001 — API Gateway and Ingress](../../docs/adr/0001-api-gateway-ingress.md)
 * [ADR-0005 — GitOps with Argo CD](../../docs/adr/0005-gitops-with-argocd.md)
-* [`../terraform/envs/dev/`](../terraform/envs/dev/) — Azure infrastructure provisioning
+* [`../terraform/azure/`](../terraform/azure/) — Azure infrastructure provisioning (layered Terraform)

@@ -53,4 +53,9 @@ public class Doctor {
         slot.assignTo(this);
         availability.add(slot);
     }
+
+    /** @return true if a slot with this id was found and removed (orphanRemoval deletes it on flush). */
+    public boolean removeAvailabilitySlot(UUID slotId) {
+        return availability.removeIf(slot -> slot.getId().equals(slotId));
+    }
 }

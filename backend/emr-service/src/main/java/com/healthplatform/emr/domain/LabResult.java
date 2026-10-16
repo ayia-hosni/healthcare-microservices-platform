@@ -1,5 +1,6 @@
 package com.healthplatform.emr.domain;
 
+import com.healthplatform.common.crypto.EncryptedStringConverter;
 import jakarta.persistence.*;
 import java.util.UUID;
 
@@ -15,12 +16,16 @@ public class LabResult {
     @JoinColumn(name = "encounter_id")
     private Encounter encounter;
 
-    @Column(nullable = false)
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String testName;
 
-    @Column(nullable = false)
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String resultValue;
 
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(columnDefinition = "TEXT")
     private String referenceRange;
 
     protected LabResult() {}

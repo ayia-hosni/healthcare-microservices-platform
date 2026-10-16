@@ -1,0 +1,15 @@
+# Copy to terraform.tfvars (gitignored).
+
+region = "us-east-1"
+
+# Must match 20-platform's kafka_mode.
+# kafka_mode = "self-hosted"     # "msk" adds ~$150+/mo
+
+# db_publicly_accessible = true  # false => run apply from inside the VPC
+# db_deletion_protection = false # true before you care about the data
+
+tags = {
+  project   = "healthcare-platform"
+  managedby = "terraform"
+  owner     = "CHANGEME"
+}

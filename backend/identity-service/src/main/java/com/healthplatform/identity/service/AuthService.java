@@ -1,5 +1,6 @@
 package com.healthplatform.identity.service;
 
+import com.healthplatform.common.crypto.BlindIndexHasher;
 import com.healthplatform.common.exception.BusinessException;
 import com.healthplatform.identity.config.JwtProperties;
 import com.healthplatform.identity.domain.RefreshToken;
@@ -8,8 +9,10 @@ import com.healthplatform.identity.domain.User;
 import com.healthplatform.identity.repository.RefreshTokenRepository;
 import com.healthplatform.identity.repository.UserRepository;
 import com.healthplatform.identity.web.dto.AuthResponse;
+import com.healthplatform.identity.web.dto.CreateStaffAccountRequest;
 import com.healthplatform.identity.web.dto.LoginRequest;
 import com.healthplatform.identity.web.dto.RegisterRequest;
+import com.healthplatform.identity.web.dto.StaffAccountResponse;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,26 +44,31 @@ public class AuthService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtService jwtService;
     private final JwtProperties jwtProperties;
+    private final BlindIndexHasher blindIndexHasher;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder(12);
 
     public AuthService(UserRepository userRepository,
                         RefreshTokenRepository refreshTokenRepository,
                         JwtService jwtService,
-                        JwtProperties jwtProperties) {
+                        JwtProperties jwtProperties,
+                        BlindIndexHasher blindIndexHasher) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.jwtService = jwtService;
         this.jwtProperties = jwtProperties;
+        this.blindIndexHasher = blindIndexHasher;
     }
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        if (userRepository.existsByEmail(request.email())) {
+        String emailHash = blindIndexHasher.hash(request.email());
+        if (userRepository.existsByEmailHash(emailHash)) {
             throw new BusinessException("EMAIL_TAKEN", "An account with this email already exists");
         }
 
         User user = new User(
                 request.email(),
+                emailHash,
                 passwordEncoder.encode(request.password()),
                 EnumSet.of(Role.ROLE_PATIENT)
         );
@@ -69,9 +77,35 @@ public class AuthService {
         return issueTokenPair(user);
     }
 
+    /**
+     * The admin action mentioned above: the only path that creates a non-patient account.
+     * Returns no token pair; the admin is provisioning an account, not logging in as it.
+     */
+    @Transactional
+    public StaffAccountResponse createStaffAccount(CreateStaffAccountRequest request) {
+        if (request.role() == Role.ROLE_PATIENT) {
+            throw new BusinessException("INVALID_ROLE", "Patients use self-service registration, not this endpoint");
+        }
+
+        String emailHash = blindIndexHasher.hash(request.email());
+        if (userRepository.existsByEmailHash(emailHash)) {
+            throw new BusinessException("EMAIL_TAKEN", "An account with this email already exists");
+        }
+
+        User user = new User(
+                request.email(),
+                emailHash,
+                passwordEncoder.encode(request.password()),
+                EnumSet.of(request.role())
+        );
+        userRepository.save(user);
+
+        return new StaffAccountResponse(user.getId(), user.getEmail(), request.role());
+    }
+
     @Transactional
     public AuthResponse login(LoginRequest request) {
-        User user = userRepository.findByEmail(request.email())
+        User user = userRepository.findByEmailHash(blindIndexHasher.hash(request.email()))
                 .orElseThrow(() -> new BusinessException("INVALID_CREDENTIALS", "Invalid email or password"));
 
         if (user.isAccountLocked()) {

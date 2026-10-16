@@ -50,3 +50,6 @@ crash.*.log
 
 frontend/public/interactive_healthcare_dashboard.html
 docs/adr/
+
+# Personal AWS execution notes — not shared documentation
+AWS_DEPLOYMENT_PLAN.md

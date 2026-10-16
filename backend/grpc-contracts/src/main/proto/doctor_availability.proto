@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package com.healthplatform.common.grpc;
+
+option java_package = "com.healthplatform.common.grpc";
+option java_multiple_files = true;
+option java_outer_classname = "DoctorAvailabilityProto";
+
+// Synchronous "is this doctor working during this window" check appointment-service runs
+// before booking/rescheduling — the "Schedule Check" step alongside DoctorLookup/PatientLookup.
+// doctor-service is the source of truth for AvailabilitySlot (recurring weekly working hours);
+// this is deliberately a narrow check per ADR-0004, not a way to read the slots themselves
+// (that's DoctorController's REST API, for whoever manages a doctor's schedule).
+service DoctorAvailability {
+  rpc CheckAvailability (CheckAvailabilityRequest) returns (CheckAvailabilityResponse);
+}
+
+message CheckAvailabilityRequest {
+  string doctor_id = 1;
+  string day_of_week = 2; // java.time.DayOfWeek name, e.g. "MONDAY"
+  string start_time = 3;  // ISO-8601 local time, e.g. "09:00:00"
+  string end_time = 4;
+}
+
+message CheckAvailabilityResponse {
+  bool available = 1;
+}

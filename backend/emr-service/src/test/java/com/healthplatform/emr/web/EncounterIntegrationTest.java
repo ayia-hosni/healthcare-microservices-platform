@@ -1,10 +1,10 @@
 package com.healthplatform.emr.web;
 
+import com.healthplatform.common.security.test.TestJwtSupport;
+import org.springframework.context.annotation.Import;
 import com.healthplatform.emr.web.dto.DiagnosisRequest;
 import com.healthplatform.emr.web.dto.EncounterRequest;
 import com.healthplatform.emr.web.dto.EncounterResponse;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -33,6 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @Testcontainers
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Import(TestJwtSupport.TestJwtConfig.class)
 class EncounterIntegrationTest {
 
     @Container
@@ -46,6 +47,7 @@ class EncounterIntegrationTest {
         registry.add("spring.datasource.url", postgres::getJdbcUrl);
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);
+        TestJwtSupport.registerProperties(registry);
         // Avoid the real Kafka SASL_SSL config (unresolvable truststore path) during tests;
         // the outbox pattern means nothing in the request path depends on a live broker.
         registry.add("spring.kafka.properties.security.protocol", () -> "PLAINTEXT");
@@ -58,11 +60,9 @@ class EncounterIntegrationTest {
     @Autowired
     private TestRestTemplate restTemplate;
 
-    private static final String JWT_SECRET = "change-me-in-production-this-must-be-at-least-32-bytes-long";
 
     private String jwtFor(String username, String... roles) {
-        var key = Keys.hmacShaKeyFor(JWT_SECRET.getBytes());
-        return Jwts.builder().subject(username).claim("roles", List.of(roles)).signWith(key).compact();
+        return TestJwtSupport.mint(username, roles);
     }
 
     private HttpHeaders authHeaders(String... roles) {
@@ -122,7 +122,8 @@ class EncounterIntegrationTest {
 
         ResponseEntity<String> response = restTemplate.postForEntity(url("/api/v1/encounters"), createEntity, String.class);
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        // No credentials -> 401 (the OAuth2 resource server's bearer-token entry point).
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 
     @Test

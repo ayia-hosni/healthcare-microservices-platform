@@ -43,28 +43,13 @@
       <optional>true</optional>
     </dependency>
 
-    <!-- Shared JWT *verification* only (no signing key generation here) so every downstream
-         service can validate access tokens issued by identity-service without duplicating
-         the parsing logic. -->
+    <!-- Shared OAuth2 resource-server chain: every downstream service validates identity-service's
+         RS256 access tokens against its published JWKS. Brings spring-security-oauth2-jose
+         (Nimbus JWT decode) transitively. -->
     <dependency>
-      <groupId>io.jsonwebtoken</groupId>
-      <artifactId>jjwt-api</artifactId>
-      <version>${jjwt.version}</version>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
     </dependency>
-    <dependency>
-      <groupId>io.jsonwebtoken</groupId>
-      <artifactId>jjwt-impl</artifactId>
-      <version>${jjwt.version}</version>
-      <scope>runtime</scope>
-    </dependency>
-    <dependency>
-      <groupId>io.jsonwebtoken</groupId>
-      <artifactId>jjwt-jackson</artifactId>
-      <version>${jjwt.version}</version>
-      <scope>runtime</scope>
-    </dependency>
-
-    <!-- Needed for the shared resource-server JWT filter (OncePerRequestFilter, GrantedAuthority) -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-security</artifactId>
@@ -122,5 +107,30 @@
       <artifactId>grpc-contracts</artifactId>
       <version>${project.version}</version>
     </dependency>
+
+    <!-- test-scoped: TestJwtSupport (src/test) is packaged as a test-jar and reused by every
+         service's integration test to mint RS256 bearer tokens. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
+
+  <build>
+    <plugins>
+      <!-- Publishes common's test sources (TestJwtSupport) as a consumable test-jar. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <executions>
+          <execution>
+            <goals>
+              <goal>test-jar</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
 </project>

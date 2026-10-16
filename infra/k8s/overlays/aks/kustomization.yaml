@@ -9,7 +9,7 @@ resources:
   - datastores/rabbitmq.yaml
   - datastores/minio.yaml
 
-# Real AKS cluster, but still the 4-vCPU POC quota (see infra/terraform/envs/dev/variables.tf) —
+# Real AKS cluster, but still the 4-vCPU POC quota (see infra/terraform/azure/modules/aks/variables.tf) —
 # 9 services + graphql-gateway + frontend + 6 in-cluster datastores at base's real replicas: 2
 # doesn't fit. Pinned to 1 for capacity only; base's real per-pod resource requests/limits and
 # probe timings are left untouched (see the deliberately-absent dev-resources.yaml/

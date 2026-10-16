@@ -1,6 +1,9 @@
 package com.healthplatform.patient.service;
 
+import com.healthplatform.common.events.ConsentGrantedEvent;
+import com.healthplatform.common.events.ConsentRevokedEvent;
 import com.healthplatform.common.events.PatientRegisteredEvent;
+import com.healthplatform.common.events.PatientUpdatedEvent;
 import com.healthplatform.common.exception.ResourceNotFoundException;
 import com.healthplatform.patient.domain.Patient;
 import com.healthplatform.patient.event.PatientEventPublisher;
@@ -13,7 +16,9 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 @Service
@@ -52,9 +57,18 @@ public class PatientService {
         return toResponse(patient);
     }
 
+    /**
+     * Names are encrypted at rest (see Patient), so this loads every patient, decrypts, and
+     * matches in Java. O(n) per call: fine at demo scale, not a real search index.
+     */
     @Transactional(readOnly = true)
     public List<PatientResponse> search(String query) {
-        return patientRepository.searchByName(query).stream().map(this::toResponse).toList();
+        String needle = query.toLowerCase(Locale.ROOT);
+        return patientRepository.findAll().stream()
+                .filter(p -> p.getFirstName().toLowerCase(Locale.ROOT).contains(needle)
+                        || p.getLastName().toLowerCase(Locale.ROOT).contains(needle))
+                .map(this::toResponse)
+                .toList();
     }
 
     @CacheEvict(value = "patients", key = "#id")
@@ -63,11 +77,52 @@ public class PatientService {
         Patient patient = patientRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Patient not found: " + id));
         patient.setPhoneNumber(phoneNumber);
+
+        eventPublisher.publishPatientUpdated(
+                patient.getId().toString(),
+                new PatientUpdatedEvent(patient.getId().toString(), patient.getPhoneNumber()),
+                MDC.get("correlationId")
+        );
+
+        return toResponse(patient);
+    }
+
+    @CacheEvict(value = "patients", key = "#id")
+    @Transactional
+    public PatientResponse grantConsent(UUID id) {
+        Patient patient = patientRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Patient not found: " + id));
+        Instant now = Instant.now();
+        patient.grantConsent(now);
+
+        eventPublisher.publishConsentGranted(
+                patient.getId().toString(),
+                new ConsentGrantedEvent(patient.getId().toString(), now),
+                MDC.get("correlationId")
+        );
+
+        return toResponse(patient);
+    }
+
+    @CacheEvict(value = "patients", key = "#id")
+    @Transactional
+    public PatientResponse revokeConsent(UUID id) {
+        Patient patient = patientRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Patient not found: " + id));
+        Instant now = Instant.now();
+        patient.revokeConsent(now);
+
+        eventPublisher.publishConsentRevoked(
+                patient.getId().toString(),
+                new ConsentRevokedEvent(patient.getId().toString(), now),
+                MDC.get("correlationId")
+        );
+
         return toResponse(patient);
     }
 
     private PatientResponse toResponse(Patient p) {
         return new PatientResponse(p.getId(), p.getFirstName(), p.getLastName(), p.getDateOfBirth(),
-                p.getEmail(), p.getPhoneNumber());
+                p.getEmail(), p.getPhoneNumber(), p.isConsentGranted(), p.getConsentUpdatedAt());
     }
 }

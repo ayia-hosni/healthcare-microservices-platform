@@ -169,34 +169,27 @@ in [Data Services](data-services.md#production-database-evolution).
 
 # Infrastructure as Code
 
-Terraform manages the AWS platform, following the same module/environment
-structure as the existing Azure Terraform.
+Terraform manages the AWS platform, using the same component-module /
+layered-environment structure as the Azure Terraform.
 
 ```text
-infra/terraform/
+infra/terraform/aws/
 │
-├── bootstrap/
-│   ├── main.tf
-│   ├── variables.tf
-│   └── outputs.tf
+├── bootstrap/            # remote-state backend (S3 bucket + DynamoDB lock)
 │
-└── envs/
-    └── dev/
-        ├── main.tf
-        ├── provider.tf
-        ├── versions.tf
-        ├── backend.tf
-        ├── vpc.tf
-        ├── eks.tf
-        ├── rds.tf
-        ├── elasticache.tf
-        ├── msk.tf
-        ├── secretsmanager.tf
-        ├── ecr.tf
-        ├── s3.tf
-        ├── monitoring.tf
-        └── variables.tf
+├── modules/             # reusable building blocks
+│   ├── network/  eks/  ecr/
+│   ├── data/  storage/  secrets/  cicd/
+│
+└── envs/dev/            # one root module + one state per layer
+    ├── 10-network/      # VPC, subnets, IGW/NAT, S3 endpoint, data SG
+    ├── 20-platform/     # EKS + IRSA roles, ECR
+    ├── 30-data/         # RDS (+ per-service DBs), ElastiCache, MSK (optional), S3, Secrets Manager
+    └── 40-cicd/         # GitHub Actions OIDC role + EKS access entry
 ```
+
+Apply `10 → 20 → 30`; `40` any time after `20`. Each layer reads its upstream layers'
+outputs via `terraform_remote_state`.
 
 ## Terraform State
 

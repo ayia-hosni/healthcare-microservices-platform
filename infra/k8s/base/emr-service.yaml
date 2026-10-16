@@ -35,11 +35,11 @@ spec:
                 secretKeyRef:
                   name: platform-secrets
                   key: DB_PASSWORD
-            - name: JWT_SECRET
+            - name: FIELD_ENCRYPTION_KEY
               valueFrom:
                 secretKeyRef:
                   name: platform-secrets
-                  key: JWT_SECRET
+                  key: FIELD_ENCRYPTION_KEY
             - name: KAFKA_SASL_USERNAME
               valueFrom:
                 configMapKeyRef:

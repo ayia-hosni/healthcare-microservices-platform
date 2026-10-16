@@ -68,7 +68,9 @@ class PatientServiceCacheTest {
         patientService.updatePhoneNumber(id, "555-0000");
         patientService.getById(id);
 
-        verify(patientRepository, times(2)).findById(id);
+        // 3, not 2: updatePhoneNumber loads the entity with its own findById before evicting
+        // the cache, so the final getById is a third hit.
+        verify(patientRepository, times(3)).findById(id);
     }
 
     @TestConfiguration

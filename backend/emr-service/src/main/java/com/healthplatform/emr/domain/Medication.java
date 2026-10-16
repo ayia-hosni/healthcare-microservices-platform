@@ -1,5 +1,6 @@
 package com.healthplatform.emr.domain;
 
+import com.healthplatform.common.crypto.EncryptedStringConverter;
 import jakarta.persistence.*;
 import java.util.UUID;
 
@@ -16,10 +17,12 @@ public class Medication {
     @JoinColumn(name = "encounter_id")
     private Encounter encounter;
 
-    @Column(nullable = false)
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String name;
 
-    @Column(nullable = false)
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String dosage;
 
     protected Medication() {}

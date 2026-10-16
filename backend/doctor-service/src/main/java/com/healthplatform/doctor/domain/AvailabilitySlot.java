@@ -10,8 +10,9 @@ import java.util.UUID;
 @Table(name = "availability_slots")
 public class AvailabilitySlot {
 
+    // Assigned in the constructor, not @GeneratedValue: addAvailabilitySlot and
+    // removeAvailabilitySlot match on getId() before the slot is persisted.
     @Id
-    @GeneratedValue
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -31,6 +32,7 @@ public class AvailabilitySlot {
     protected AvailabilitySlot() {}
 
     public AvailabilitySlot(DayOfWeek dayOfWeek, LocalTime startTime, LocalTime endTime) {
+        this.id = UUID.randomUUID();
         this.dayOfWeek = dayOfWeek;
         this.startTime = startTime;
         this.endTime = endTime;

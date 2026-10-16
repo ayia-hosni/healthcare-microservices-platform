@@ -6,11 +6,11 @@ on:
   pull_request:
 
 permissions:
-  id-token: write
   contents: read
+  packages: write
 
 env:
-  ACR_LOGIN_SERVER: ${{ vars.ACR_LOGIN_SERVER }}
+  REGISTRY: ghcr.io
 
 jobs:
   backend-unit-tests:
@@ -62,6 +62,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         service:
           - identity-service
@@ -78,12 +79,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
-      - uses: azure/login@v2
+      - uses: docker/login-action@v3
         with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-      - run: az acr login --name "${ACR_LOGIN_SERVER%%.*}"
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # GHCR requires lowercase repository paths.
+      - name: Compute image name
+        run: echo "IMAGE=${REGISTRY}/${GITHUB_REPOSITORY_OWNER,,}/healthcare-platform/${{ matrix.service }}" >> "$GITHUB_ENV"
       - name: Build and push (backend service)
         if: matrix.service != 'frontend'
         uses: docker/build-push-action@v6
@@ -92,8 +95,8 @@ jobs:
           file: backend/${{ matrix.service }}/Dockerfile
           push: true
           tags: |
-            ${{ env.ACR_LOGIN_SERVER }}/healthcare-platform/${{ matrix.service }}:${{ github.sha }}
-            ${{ env.ACR_LOGIN_SERVER }}/healthcare-platform/${{ matrix.service }}:latest
+            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:latest
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
       - name: Build and push (frontend)
@@ -104,78 +107,102 @@ jobs:
           file: frontend/Dockerfile
           push: true
           tags: |
-            ${{ env.ACR_LOGIN_SERVER }}/healthcare-platform/frontend:${{ github.sha }}
-            ${{ env.ACR_LOGIN_SERVER }}/healthcare-platform/frontend:latest
+            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:latest
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
 
+  # Deploys to the single-node k3s host. The k3s API is never exposed: the runner SSHes in and
+  # pipes manifests to the server's own kubectl.
+  #
+  # Required repo configuration (Settings > Secrets and variables > Actions):
+  #   secrets.DEPLOY_SSH_KEY         private key whose public half is in the server's authorized_keys
+  #   secrets.DEPLOY_KNOWN_HOSTS     output of `ssh-keyscan -t ed25519 <host>` (pins the host key)
+  #   secrets.GHCR_PULL_TOKEN        PAT with read:packages, so the cluster can pull private images
+  #   vars.DEPLOY_HOST / DEPLOY_USER SSH target (e.g. srv2053232 host/IP, root)
+  #   vars.PUBLIC_ORIGIN             browser origin of the frontend, e.g. https://health.example.com
+  #   secrets.JWT_RSA_PRIVATE_KEY / JWT_RSA_PUBLIC_KEY / FIELD_ENCRYPTION_KEY /
+  #   secrets.FIELD_ENCRYPTION_HMAC_KEY   optional; when set they replace the dev overlay's
+  #                                       publicly-known keys (see the "Harden secrets" step)
   deploy:
     needs: [docker-build-push]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-k3s
+      cancel-in-progress: false
+    env:
+      SSH_TARGET: ${{ vars.DEPLOY_USER }}@${{ vars.DEPLOY_HOST }}
+      KUBECTL: KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl
     steps:
       - uses: actions/checkout@v4
-      - uses: azure/login@v2
-        with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-      - run: |
-          az aks get-credentials \
-            --resource-group "${{ vars.AKS_RESOURCE_GROUP }}" \
-            --name "${{ vars.AKS_CLUSTER_NAME }}" \
-            --overwrite-existing
-      - uses: azure/setup-kubectl@v4
-      - uses: azure/setup-helm@v4
       - uses: imranismail/setup-kustomize@v2
-      - name: Install/upgrade ingress-nginx
-        # Idempotent — no-ops when already installed/unchanged. Provisions (and keeps) an Azure
-        # Load Balancer with a public IP the first time this runs: an ongoing real cost, not a
-        # one-off, since no Ingress controller exists on this cluster otherwise (see
-        # docs/adr/0001-api-gateway-ingress.md).
+      - name: Configure SSH
         run: |
-          helm upgrade --install ingress-nginx ingress-nginx \
-            --repo https://kubernetes.github.io/ingress-nginx \
-            --namespace ingress-nginx --create-namespace
-      - name: Set image tags and apply manifests
-        working-directory: infra/k8s/overlays/aks
+          install -m 700 -d ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          echo "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          printf 'Host *\n  IdentityFile ~/.ssh/id_deploy\n  StrictHostKeyChecking yes\n  BatchMode yes\n' > ~/.ssh/config
+      - name: Render manifests
+        working-directory: infra/k8s/overlays/k3s
         run: |
           set -euo pipefail
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
           for svc in identity-service patient-service doctor-service \
                      appointment-service emr-service billing-service \
                      notification-service audit-service analytics-service \
                      graphql-gateway frontend; do
             kustomize edit set image \
-              "healthcare-platform/$svc=${ACR_LOGIN_SERVER}/healthcare-platform/$svc:${GITHUB_SHA}"
+              "healthcare-platform/$svc=${REGISTRY}/${owner}/healthcare-platform/$svc:${GITHUB_SHA}"
           done
-          kubectl apply -k .
-      - name: Apply real platform-secrets
-        # Runs after `kubectl apply -k`, which reinstates base's placeholder Secret unmodified
-        # (the aks overlay has no patch targeting it) — this step overwrites it back to real
-        # values every deploy, so the sequence stays idempotent regardless of order across runs.
+          # Spring rejects cross-origin requests from anything not listed here (bare 403).
+          printf 'apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: platform-config\n  namespace: healthcare-platform\ndata:\n  CORS_ALLOWED_ORIGINS: "%s"\n' \
+            "${{ vars.PUBLIC_ORIGIN }}" > patches/cors.yaml
+          kustomize edit add patch --path patches/cors.yaml
+          kustomize build . > "$RUNNER_TEMP/manifests.yaml"
+      - name: Ensure namespace
+        run: ssh "$SSH_TARGET" "$KUBECTL create namespace healthcare-platform --dry-run=client -o yaml | $KUBECTL apply -f -"
+      - name: Registry pull secret
         run: |
-          kubectl create secret generic platform-secrets \
-            -n healthcare-platform \
-            --from-literal=JWT_SECRET="${{ secrets.JWT_SECRET }}" \
-            --from-literal=DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
-            --from-literal=RABBITMQ_USER="${{ secrets.RABBITMQ_USER }}" \
-            --from-literal=RABBITMQ_PASSWORD="${{ secrets.RABBITMQ_PASSWORD }}" \
-            --from-literal=KAFKA_SASL_PASSWORD_IDENTITY=unused-kafka-is-plaintext-on-aks \
-            --from-literal=KAFKA_SASL_PASSWORD_PATIENT=unused-kafka-is-plaintext-on-aks \
-            --from-literal=KAFKA_SASL_PASSWORD_DOCTOR=unused-kafka-is-plaintext-on-aks \
-            --from-literal=KAFKA_SASL_PASSWORD_APPOINTMENT=unused-kafka-is-plaintext-on-aks \
-            --from-literal=KAFKA_SASL_PASSWORD_EMR=unused-kafka-is-plaintext-on-aks \
-            --from-literal=KAFKA_SASL_PASSWORD_BILLING=unused-kafka-is-plaintext-on-aks \
-            --from-literal=KAFKA_SASL_PASSWORD_NOTIFICATION=unused-kafka-is-plaintext-on-aks \
-            --from-literal=KAFKA_SASL_PASSWORD_AUDIT=unused-kafka-is-plaintext-on-aks \
-            --from-literal=KAFKA_SASL_PASSWORD_ANALYTICS=unused-kafka-is-plaintext-on-aks \
-            --dry-run=client -o yaml | kubectl apply -f -
-      - name: Wait for rollouts
+          kubectl create secret docker-registry ghcr-pull \
+            --docker-server=ghcr.io \
+            --docker-username="${{ github.repository_owner }}" \
+            --docker-password="${{ secrets.GHCR_PULL_TOKEN }}" \
+            -n healthcare-platform --dry-run=client -o yaml \
+            | ssh "$SSH_TARGET" "$KUBECTL apply -f -"
+      - name: Apply manifests
         run: |
+          ssh "$SSH_TARGET" "$KUBECTL apply -f -" < "$RUNNER_TEMP/manifests.yaml"
+      - name: Harden secrets
+        # The dev overlay ships a public RSA keypair and encryption keys. Overwrite them when
+        # real ones are configured. Merge-patch only touches these keys, so DB/RabbitMQ
+        # passwords stay in step with the already-initialised datastores. NB: rotating
+        # FIELD_ENCRYPTION_* makes previously stored encrypted fields unreadable.
+        run: |
+          [ -n "$JWT_RSA_PRIVATE_KEY" ] || { echo 'No real keys configured; leaving dev overlay secrets'; exit 0; }
+          python3 - <<'PY' | ssh "$SSH_TARGET" "$KUBECTL -n healthcare-platform patch secret platform-secrets --type=merge --patch-file=/dev/stdin"
+          import json, os
+          keys = ["JWT_RSA_PRIVATE_KEY", "JWT_RSA_PUBLIC_KEY", "FIELD_ENCRYPTION_KEY", "FIELD_ENCRYPTION_HMAC_KEY"]
+          print(json.dumps({"stringData": {k: os.environ[k] for k in keys}}))
+          PY
+        env:
+          JWT_RSA_PRIVATE_KEY: ${{ secrets.JWT_RSA_PRIVATE_KEY }}
+          JWT_RSA_PUBLIC_KEY: ${{ secrets.JWT_RSA_PUBLIC_KEY }}
+          FIELD_ENCRYPTION_KEY: ${{ secrets.FIELD_ENCRYPTION_KEY }}
+          FIELD_ENCRYPTION_HMAC_KEY: ${{ secrets.FIELD_ENCRYPTION_HMAC_KEY }}
+      - name: Restart workloads and wait for rollouts
+        run: |
+          # Secrets/ConfigMaps are consumed as env vars, so changes need a restart; a no-op
+          # restart on an unchanged sha is cheap compared to debugging stale config.
+          ssh "$SSH_TARGET" bash -s <<'REMOTE'
           set -euo pipefail
-          for svc in identity-service patient-service doctor-service \
-                     appointment-service emr-service billing-service \
-                     notification-service audit-service analytics-service \
-                     graphql-gateway frontend; do
-            kubectl -n healthcare-platform rollout status "deployment/$svc" --timeout=300s
+          export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+          ns=healthcare-platform
+          svcs="identity-service patient-service doctor-service appointment-service emr-service billing-service notification-service audit-service analytics-service graphql-gateway frontend"
+          for s in $svcs; do kubectl -n $ns rollout restart deployment/$s; done
+          for s in $svcs; do
+            kubectl -n $ns rollout status deployment/$s --timeout=600s || {
+              kubectl -n $ns get pods; kubectl -n $ns describe pod -l app=$s | tail -30; exit 1; }
           done
+          REMOTE

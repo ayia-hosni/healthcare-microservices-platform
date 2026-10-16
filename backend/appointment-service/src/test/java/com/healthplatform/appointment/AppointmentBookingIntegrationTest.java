@@ -1,12 +1,12 @@
 package com.healthplatform.appointment;
 
+import com.healthplatform.common.security.test.TestJwtSupport;
+import org.springframework.context.annotation.Import;
 import com.healthplatform.appointment.grpc.BookingValidationClient;
 import com.healthplatform.appointment.web.dto.AppointmentResponse;
 import com.healthplatform.appointment.web.dto.BookAppointmentRequest;
 import com.healthplatform.common.dto.ErrorResponse;
 import com.healthplatform.common.outbox.OutboxEventRepository;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -42,6 +42,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Testcontainers
+@Import(TestJwtSupport.TestJwtConfig.class)
 class AppointmentBookingIntegrationTest {
 
     @Container
@@ -55,6 +56,7 @@ class AppointmentBookingIntegrationTest {
         registry.add("spring.datasource.url", postgres::getJdbcUrl);
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);
+        TestJwtSupport.registerProperties(registry);
     }
 
     @LocalServerPort
@@ -73,17 +75,30 @@ class AppointmentBookingIntegrationTest {
     @MockBean
     private BookingValidationClient bookingValidationClient;
 
-    private static final String JWT_SECRET = "change-me-in-production-this-must-be-at-least-32-bytes-long";
 
     private String jwtFor(String username, String... roles) {
-        var key = Keys.hmacShaKeyFor(JWT_SECRET.getBytes());
-        return Jwts.builder().subject(username).claim("roles", List.of(roles)).signWith(key).compact();
+        return TestJwtSupport.mint(username, roles);
     }
 
     private HttpHeaders authHeaders() {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setBearerAuth(jwtFor("aya@example.com", "ROLE_PATIENT"));
+        return headers;
+    }
+
+    private HttpHeaders staffAuthHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(jwtFor("nurse@example.com", "ROLE_ADMIN"));
+        return headers;
+    }
+
+    /** Token whose subject is the id being requested, for the ownership-scoped GET endpoints. */
+    private HttpHeaders authHeadersForSubject(String subject, String... roles) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(jwtFor(subject, roles));
         return headers;
     }
 
@@ -126,6 +141,53 @@ class AppointmentBookingIntegrationTest {
     }
 
     @Test
+    void checkInThenCompleteMovesAppointmentThroughItsLifecycle() {
+        UUID doctorId = UUID.randomUUID();
+        Instant slotStart = Instant.now().plus(5, ChronoUnit.DAYS).truncatedTo(ChronoUnit.MILLIS);
+        Instant slotEnd = slotStart.plus(30, ChronoUnit.MINUTES);
+        BookAppointmentRequest booking = new BookAppointmentRequest(
+                UUID.randomUUID(), doctorId, slotStart, slotEnd, "lifecycle-key-" + UUID.randomUUID());
+
+        ResponseEntity<AppointmentResponse> bookResponse = restTemplate.exchange(
+                url(), HttpMethod.POST, new HttpEntity<>(booking, authHeaders()), AppointmentResponse.class);
+        assertThat(bookResponse.getBody()).isNotNull();
+        UUID id = bookResponse.getBody().id();
+
+        ResponseEntity<AppointmentResponse> checkInResponse = restTemplate.exchange(
+                url() + "/" + id + "/check-in", HttpMethod.POST, new HttpEntity<>(staffAuthHeaders()), AppointmentResponse.class);
+        assertThat(checkInResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(checkInResponse.getBody()).isNotNull();
+        assertThat(checkInResponse.getBody().status().name()).isEqualTo("CONFIRMED");
+
+        ResponseEntity<AppointmentResponse> completeResponse = restTemplate.exchange(
+                url() + "/" + id + "/complete", HttpMethod.POST, new HttpEntity<>(staffAuthHeaders()), AppointmentResponse.class);
+        assertThat(completeResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(completeResponse.getBody()).isNotNull();
+        assertThat(completeResponse.getBody().status().name()).isEqualTo("COMPLETED");
+    }
+
+    @Test
+    void markingNoShowOnAScheduledAppointmentSucceeds() {
+        UUID doctorId = UUID.randomUUID();
+        Instant slotStart = Instant.now().plus(6, ChronoUnit.DAYS).truncatedTo(ChronoUnit.MILLIS);
+        Instant slotEnd = slotStart.plus(30, ChronoUnit.MINUTES);
+        BookAppointmentRequest booking = new BookAppointmentRequest(
+                UUID.randomUUID(), doctorId, slotStart, slotEnd, "noshow-key-" + UUID.randomUUID());
+
+        ResponseEntity<AppointmentResponse> bookResponse = restTemplate.exchange(
+                url(), HttpMethod.POST, new HttpEntity<>(booking, authHeaders()), AppointmentResponse.class);
+        assertThat(bookResponse.getBody()).isNotNull();
+        UUID id = bookResponse.getBody().id();
+
+        ResponseEntity<AppointmentResponse> noShowResponse = restTemplate.exchange(
+                url() + "/" + id + "/no-show", HttpMethod.POST, new HttpEntity<>(staffAuthHeaders()), AppointmentResponse.class);
+
+        assertThat(noShowResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(noShowResponse.getBody()).isNotNull();
+        assertThat(noShowResponse.getBody().status().name()).isEqualTo("NO_SHOW");
+    }
+
+    @Test
     void replayingTheSameIdempotencyKeyOverHttpReturnsTheOriginalBookingNotADuplicate() {
         UUID doctorId = UUID.randomUUID();
         UUID patientId = UUID.randomUUID();
@@ -145,5 +207,65 @@ class AppointmentBookingIntegrationTest {
         assertThat(replay.getBody()).isNotNull();
         assertThat(first.getBody()).isNotNull();
         assertThat(replay.getBody().id()).isEqualTo(first.getBody().id());
+    }
+
+    @Test
+    void doctorCanListTheirOwnAppointmentsButNotAnotherDoctors() {
+        UUID doctorId = UUID.randomUUID();
+        Instant slotStart = Instant.now().plus(7, ChronoUnit.DAYS).truncatedTo(ChronoUnit.MILLIS);
+        BookAppointmentRequest booking = new BookAppointmentRequest(
+                UUID.randomUUID(), doctorId, slotStart, slotStart.plus(30, ChronoUnit.MINUTES), "own-doctor-key-" + UUID.randomUUID());
+        restTemplate.exchange(url(), HttpMethod.POST, new HttpEntity<>(booking, authHeaders()), AppointmentResponse.class);
+
+        ResponseEntity<AppointmentResponse[]> own = restTemplate.exchange(
+                url() + "?doctorId=" + doctorId, HttpMethod.GET,
+                new HttpEntity<>(authHeadersForSubject(doctorId.toString(), "ROLE_DOCTOR")), AppointmentResponse[].class);
+        assertThat(own.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(own.getBody()).isNotEmpty();
+
+        ResponseEntity<String> someoneElse = restTemplate.exchange(
+                url() + "?doctorId=" + doctorId, HttpMethod.GET,
+                new HttpEntity<>(authHeadersForSubject(UUID.randomUUID().toString(), "ROLE_DOCTOR")), String.class);
+        assertThat(someoneElse.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void patientCanListTheirOwnAppointmentsButNotAnotherPatients() {
+        UUID patientId = UUID.randomUUID();
+        Instant slotStart = Instant.now().plus(8, ChronoUnit.DAYS).truncatedTo(ChronoUnit.MILLIS);
+        BookAppointmentRequest booking = new BookAppointmentRequest(
+                patientId, UUID.randomUUID(), slotStart, slotStart.plus(30, ChronoUnit.MINUTES), "own-patient-key-" + UUID.randomUUID());
+        restTemplate.exchange(url(), HttpMethod.POST, new HttpEntity<>(booking, authHeaders()), AppointmentResponse.class);
+
+        ResponseEntity<AppointmentResponse[]> own = restTemplate.exchange(
+                url() + "?patientId=" + patientId, HttpMethod.GET,
+                new HttpEntity<>(authHeadersForSubject(patientId.toString(), "ROLE_PATIENT")), AppointmentResponse[].class);
+        assertThat(own.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(own.getBody()).isNotEmpty();
+
+        ResponseEntity<String> someoneElse = restTemplate.exchange(
+                url() + "?patientId=" + patientId, HttpMethod.GET,
+                new HttpEntity<>(authHeadersForSubject(UUID.randomUUID().toString(), "ROLE_PATIENT")), String.class);
+        assertThat(someoneElse.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void adminCanListAnyDoctorsOrPatientsAppointments() {
+        UUID doctorId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+        Instant slotStart = Instant.now().plus(9, ChronoUnit.DAYS).truncatedTo(ChronoUnit.MILLIS);
+        BookAppointmentRequest booking = new BookAppointmentRequest(
+                patientId, doctorId, slotStart, slotStart.plus(30, ChronoUnit.MINUTES), "admin-view-key-" + UUID.randomUUID());
+        restTemplate.exchange(url(), HttpMethod.POST, new HttpEntity<>(booking, authHeaders()), AppointmentResponse.class);
+
+        ResponseEntity<AppointmentResponse[]> byDoctor = restTemplate.exchange(
+                url() + "?doctorId=" + doctorId, HttpMethod.GET, new HttpEntity<>(staffAuthHeaders()), AppointmentResponse[].class);
+        assertThat(byDoctor.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(byDoctor.getBody()).isNotEmpty();
+
+        ResponseEntity<AppointmentResponse[]> byPatient = restTemplate.exchange(
+                url() + "?patientId=" + patientId, HttpMethod.GET, new HttpEntity<>(staffAuthHeaders()), AppointmentResponse[].class);
+        assertThat(byPatient.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(byPatient.getBody()).isNotEmpty();
     }
 }

@@ -1,0 +1,3 @@
+# Copy to terraform.tfvars (gitignored).
+
+github_repo = "ayia-hosni/healthcare-microservices-platform"

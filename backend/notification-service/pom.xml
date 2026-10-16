@@ -59,6 +59,13 @@
       <scope>test</scope>
     </dependency>
     <dependency>
+      <groupId>com.healthplatform</groupId>
+      <artifactId>common</artifactId>
+      <version>${project.version}</version>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
       <groupId>org.springframework.amqp</groupId>
       <artifactId>spring-rabbit-test</artifactId>
       <scope>test</scope>
