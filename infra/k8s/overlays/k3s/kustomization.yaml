@@ -18,3 +18,16 @@ patches:
   # GHCR packages are private by default; the deploy job creates this pull secret.
   - path: patches/image-pull-secret.yaml
     target: { kind: Deployment }
+
+  # The server's postgres volume was provisioned at 10Gi; a PVC can't shrink, so dev's 1Gi would make
+  # `kubectl apply` fail with "field can not be less than status.capacity".
+  - target: { kind: PersistentVolumeClaim, name: postgres-data }
+    patch: |-
+      - op: replace
+        path: /spec/resources/requests/storage
+        value: 10Gi
+
+  - path: patches/small-node-resources.yaml
+    target:
+      kind: Deployment
+      name: "(identity|patient|doctor|appointment|emr|billing|notification|audit|analytics)-service|graphql-gateway"

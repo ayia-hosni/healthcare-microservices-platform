@@ -1,0 +1,12 @@
+# The VPS is a single node with ~1 vCPU / ~4Gi RAM shared by 10 JVMs plus the datastores. The
+# scheduler goes by *requests*, so keep those small (JVMs idle most of the time) and leave limits
+# generous enough to boot. dev's 250m CPU request per service alone exceeds the node.
+- op: replace
+  path: /spec/template/spec/containers/0/resources
+  value:
+    requests:
+      cpu: "25m"
+      memory: "192Mi"
+    limits:
+      cpu: "1000m"
+      memory: "640Mi"
