@@ -11,6 +11,27 @@ kind: Kustomization
 resources:
   - ../dev
 
+# The VPS has ~1 vCPU / 4Gi and can't be resized. All 10 JVMs plus the datastores overloaded it
+# (load 13, swap full, k3s itself crashed), so only the core request path runs here. The
+# five below are deployed but scaled to 0; raise a count to 1 to bring one back (the restart
+# loop in ci.yml skips them, keep its service list in step).
+replicas:
+  - name: analytics-service
+    count: 0
+  - name: audit-service
+    count: 0
+  - name: notification-service
+    count: 0
+  - name: billing-service
+    count: 0
+  - name: emr-service
+    count: 0
+  # Only emr-service uses MinIO, and docker.io/minio/minio:latest is no longer pullable
+  # (insufficient_scope — upstream stopped publishing there; quay.io/minio/minio is the
+  # replacement if EMR is ever brought back).
+  - name: minio
+    count: 0
+
 patches:
   - path: patches/ingress-traefik.yaml
     target: { kind: Ingress, name: platform-gateway }

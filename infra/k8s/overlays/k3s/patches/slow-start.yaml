@@ -12,3 +12,8 @@
   value:
     name: JDK_JAVA_OPTIONS
     value: "-XX:TieredStopAtLevel=1 -XX:+UseSerialGC"
+# Kubernetes marks a rollout failed after 600s by default, which a cold start here can exceed
+# even though the pod does become ready afterwards.
+- op: add
+  path: /spec/progressDeadlineSeconds
+  value: 1800

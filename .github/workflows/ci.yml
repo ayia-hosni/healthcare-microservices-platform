@@ -208,7 +208,8 @@ jobs:
           set -euo pipefail
           export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
           ns=healthcare-platform
-          svcs="identity-service patient-service doctor-service appointment-service emr-service billing-service notification-service audit-service analytics-service graphql-gateway frontend"
+          # analytics/audit/notification/billing/emr are scaled to 0 in overlays/k3s (node too small)
+          svcs="identity-service patient-service doctor-service appointment-service graphql-gateway frontend"
           # One at a time: the node has ~1 vCPU, and ten JVMs cold-starting together each take
           # minutes longer than one alone.
           for s in $svcs; do
