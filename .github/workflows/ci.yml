@@ -166,6 +166,23 @@ jobs:
       - name: Apply manifests
         run: |
           ssh "$SSH_TARGET" "$KUBECTL apply -f -" < "$RUNNER_TEMP/manifests.yaml"
+      - name: Sync DB role passwords
+        # postgres' init script only creates roles on the very first boot of a volume, so a
+        # volume that predates this secret keeps its old role passwords and every service fails
+        # with "password authentication failed". ALTER ROLE is idempotent. The password is read
+        # on the server from the cluster secret and fed over stdin, so it never reaches the log.
+        run: |
+          ssh "$SSH_TARGET" bash -s <<'REMOTE'
+          set -euo pipefail
+          export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+          ns=healthcare-platform
+          kubectl -n $ns rollout status deployment/postgres --timeout=300s
+          pw=$(kubectl -n $ns get secret platform-secrets -o jsonpath='{.data.DB_PASSWORD}' | base64 -d)
+          for r in identity patient doctor appointment emr billing notification audit analytics; do
+            echo "ALTER ROLE ${r}_user PASSWORD '${pw}';" \
+              | kubectl -n $ns exec -i deploy/postgres -- psql -U postgres -v ON_ERROR_STOP=1 -q
+          done
+          REMOTE
       - name: Harden secrets
         # The dev overlay ships a public RSA keypair and encryption keys. Overwrite them when
         # real ones are configured. Merge-patch only touches these keys, so DB/RabbitMQ
