@@ -192,9 +192,11 @@ jobs:
           export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
           ns=healthcare-platform
           svcs="identity-service patient-service doctor-service appointment-service emr-service billing-service notification-service audit-service analytics-service graphql-gateway frontend"
-          for s in $svcs; do kubectl -n $ns rollout restart deployment/$s; done
+          # One at a time: the node has ~1 vCPU, and ten JVMs cold-starting together each take
+          # minutes longer than one alone.
           for s in $svcs; do
-            kubectl -n $ns rollout status deployment/$s --timeout=600s || {
+            kubectl -n $ns rollout restart deployment/$s
+            kubectl -n $ns rollout status deployment/$s --timeout=900s || {
               kubectl -n $ns get pods; kubectl -n $ns describe pod -l app=$s | tail -30; exit 1; }
           done
           REMOTE

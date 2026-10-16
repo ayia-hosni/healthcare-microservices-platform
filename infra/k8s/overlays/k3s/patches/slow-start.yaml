@@ -1,0 +1,14 @@
+# A cold Spring Boot JVM takes several minutes on this ~1 vCPU node (identity-service logged
+# 173s for web-context init alone), longer when others start at the same time. Base's liveness
+# probe (30s delay + dev's 16 x 15s failures) kills pods at ~4.5min, before they ever finish
+# booting, so hold liveness off for 7min. Readiness is unaffected and still gates traffic.
+- op: add
+  path: /spec/template/spec/containers/0/livenessProbe/initialDelaySeconds
+  value: 420
+# C1-only JIT + serial GC cut startup CPU and memory noticeably; picked up by the `java`
+# launcher, so no image rebuild and no clash with dev's JAVA_TOOL_OPTIONS (urandom).
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: JDK_JAVA_OPTIONS
+    value: "-XX:TieredStopAtLevel=1 -XX:+UseSerialGC"

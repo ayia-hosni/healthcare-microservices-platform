@@ -27,3 +27,8 @@ patches:
     target:
       kind: Deployment
       name: "(identity|patient|doctor|appointment|emr|billing|notification|audit|analytics)-service|graphql-gateway"
+
+  - path: patches/slow-start.yaml
+    target:
+      kind: Deployment
+      name: "(identity|patient|doctor|appointment|emr|billing|notification|audit|analytics)-service|graphql-gateway"
